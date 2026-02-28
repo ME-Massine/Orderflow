@@ -38,6 +38,9 @@ Scope of milestone:
 - Test profile configured
 - CI pipeline executing Maven tests
 - Project versioning initialized
+- Controller integration tests (MockMvc)
+- Repository slice tests (DataJpaTest)
+- Exception handling corrected for 400 vs 500 responses
 
 ---
 
@@ -130,6 +133,27 @@ Status: Implemented
 
 ---
 
+## ADR-007 – Structured Exception Handling
+
+Decision:
+Use @RestControllerAdvice for centralized exception mapping.
+
+Enhancements:
+- MethodArgumentNotValidException → 400
+- MissingServletRequestParameterException → 400
+- MethodArgumentTypeMismatchException → 400
+- NotFoundException → 404
+- Generic Exception → 500
+
+Reason:
+- Correct HTTP semantics
+- Predictable API error contract
+- Professional-grade behavior
+
+Status: Implemented and verified by tests
+
+---
+
 # 4. Completed Components
 
 ## Core Structure
@@ -170,9 +194,29 @@ Status: Implemented
 - /v3/api-docs endpoint working
 
 ## Testing
-- contextLoads test
-- H2 in-memory test database
-- Rabbit auto-config disabled in tests
+
+### Web Layer Integration Tests
+- @WebMvcTest
+- MockMvc HTTP contract validation
+- JSON structure verification
+- Validation failure scenarios
+- Enum mismatch handling
+- Missing parameter handling
+
+### Repository Tests
+- @DataJpaTest
+- H2 in-memory database
+- Entity persistence verification
+- @PrePersist behavior verification
+
+### Test Coverage Scope
+- Controller contract
+- Validation layer
+- Exception handling
+- Repository persistence
+
+Build Status: Passing
+All tests: Green
 
 ## CI
 - GitHub Actions workflow (ci.yml)
@@ -187,30 +231,30 @@ Status: Implemented
 
 # 5. Pending Tasks
 
-High Priority:
-- Add integration tests (MockMvc)
-- Add repository test slice
-- Improve exception handling (standard error response format)
+### High Priority:
+- Service layer unit tests
+- Coverage metrics (Jacoco)
+- Pagination response standardization
 
-Medium Priority:
-- Add global exception handler contract model
-- Add request/response logging strategy
-- Add pagination metadata standardization
+### Medium Priority:
+- Structured request logging
+- Correlation IDs
+- Improve error contract consistency
 
-Infrastructure:
+### Infrastructure:
 - Dockerize order-service
 - Add docker-compose with PostgreSQL
 - Add health endpoint readiness/liveness separation
 
-Observability:
+### Observability:
 - Add metrics tagging
 - Enable Prometheus export
 
-Architecture:
+### Architecture:
 - Prepare for RabbitMQ event publishing (future milestone)
 - Introduce domain events pattern
 
-Documentation:
+### Documentation:
 - Add architecture diagram (Mermaid)
 - Expand README with run instructions
 
@@ -218,16 +262,17 @@ Documentation:
 
 # 6. Known Issues
 
-1. Maven wrapper exists only inside `services/order-service`
-   → Root wrapper recommended for mono-repo cleanliness.
+1. @MockBean deprecation warning in Spring Boot 3.5.x
+   → Functional but flagged for future migration.
 
-2. No integration test coverage yet.
-   → Only contextLoads exists.
+2. PageImpl serialization warning
+   → JSON shape not guaranteed stable.
+   → Can be improved with DTO-based pagination model.
 
 3. RabbitMQ starter present but not used yet.
    → Will be used in future milestone.
 
-4. No standardized API error response format yet.
+4. No service-layer unit tests yet.
 
 5. No Docker configuration yet.
 
@@ -246,18 +291,19 @@ Documentation:
 
 Recommended next step:
 
-Add Integration Testing Layer
+Add Service Layer Unit Tests
 
 Specifically:
-- Add `@WebMvcTest` for OrderController
-- Add MockMvc tests for:
-    - POST /api/v1/orders
-    - GET /api/v1/orders
-    - PATCH /api/v1/orders/{id}/status
-- Add repository test with `@DataJpaTest`
+- Test create logic behavior
+- Test status transition rules
+- Test NotFound scenarios
+- Test pagination mapping
 
 Why:
-This transitions the project from "functional demo" to "production-grade backend discipline".
+Controller and repository layers are validated.
+Service logic is the last untested core business layer.
+
+This elevates the project to a fully disciplined backend baseline.
 
 ---
 
@@ -285,11 +331,15 @@ Phase 4:
 Build: Passing  
 Swagger: Working  
 API Versioning: Working  
-CI: Functional  
-Database: PostgreSQL (prod) + H2 (test)  
-Architecture: Clean and extensible
+Validation: Correct HTTP semantics
+Exception Handling: Correctly mapped
+Integration Tests: Implemented
+Repository Tests: Implemented
+CI: Functional
+Database: PostgreSQL (prod) + H2 (test)
+Architecture: Clean, extensible, professionally structured
 
-Project maturity level: Early Professional
+Project maturity level: Professional Backend Baseline
 
 ---
 
