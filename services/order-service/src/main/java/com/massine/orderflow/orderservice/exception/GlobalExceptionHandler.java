@@ -10,7 +10,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
-@RestControllerAdvice
+@RestControllerAdvice(basePackages = "com.massine.orderflow.orderservice.controller")
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(NotFoundException.class)
