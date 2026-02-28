@@ -23,7 +23,14 @@
 hs_err_pid*
 replay_pid*
 
+# Maven
+target/
+
 # IntelliJ
 .idea/
 *.iml
 out/
+
+# OS
+.DS_Store
+Thumbs.db
