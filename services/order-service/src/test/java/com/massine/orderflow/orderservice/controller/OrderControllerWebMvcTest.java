@@ -147,7 +147,7 @@ class OrderControllerWebMvcTest {
                 .createdAt(Instant.parse("2026-02-28T02:00:00Z"))
                 .build();
 
-        when(service.updateStatus(7L, OrderStatus.CONFIRMED)).thenReturn(resp);
+        when(service.updateStatus( 7L, OrderStatus.CONFIRMED)).thenReturn(resp);
 
         // NOTE: status is a request param in your controller
         mockMvc.perform(patch("/api/v1/orders/7/status")
