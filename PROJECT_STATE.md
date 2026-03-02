@@ -5,7 +5,7 @@ Type: Systems-focused backend engineering project
 Primary Stack: Spring Boot 3, PostgreSQL, JPA, Actuator, OpenAPI  
 Language: Java 17
 
-Repository layout: mono-repo (services/order-service)
+Repository layout: `mono-repo (services/order-service)`
 
 ---
 
@@ -23,338 +23,245 @@ OrderFlow is a production-grade backend service designed to demonstrate:
 - CI pipeline integration
 - Test isolation via profile-based configuration
 - Reproducible local environment via Docker
+- Measurable and enforced code quality
 
-This project is structured to reflect real-world backend engineering standards and be portfolio-ready.
+This project reflects real-world backend engineering maturity and portfolio readiness.
 
 ---
 
 # 2. Current Milestone
 
-Milestone: Dockerized Local Run + Portfolio-Ready Setup (v0.4.0)
+Milestone: Coverage Enforcement + Code Quality Automation (v0.5.0)
 
-Status: Stable, Versioned, Tested, Reproducible
+Status: Stable, Versioned, Tested, Measurable
 
 Scope of milestone (now complete):
-- CRUD-style order management endpoints
-- API versioning introduced (/api/v1/...)
-- OpenAPI documentation integrated
-- Test profile configured (H2)
-- CI pipeline executing Maven tests
-- Controller contract tests (MockMvc via @WebMvcTest)
-- Repository slice tests (@DataJpaTest)
-- Exception handling corrected for 400 vs 500 responses
-- Service layer unit tests (Mockito, no Spring context)
-- Dockerfile (multi-stage build) for order-service
-- docker-compose (order-service + PostgreSQL)
-- Docker profile configuration (application-docker.yml)
-- pom version aligned with release tag (0.4.0)
+
+- JaCoCo coverage instrumentation
+- XML + HTML coverage report generation
+- Enforced minimum coverage thresholds:
+    - Line coverage ≥ 75%
+    - Branch coverage ≥ 60%
+- CI failure if coverage drops below threshold
+- Codecov integration
+- Auto-updating coverage badge in README
+- CI artifact upload of JaCoCo report
+- `pom` version aligned with tag (0.5.0)
 
 Release tags:
-- v0.1.0 baseline
-- v0.2.0 integration tests
-- v0.3.0 service unit tests
-- v0.4.0 dockerized local run
+- `v0.1.0` baseline
+- `v0.2.0` integration tests
+- `v0.3.0` service unit tests
+- `v0.4.0` dockerized local run
+- `v0.5.0` coverage enforcement + Codecov
 
 ---
 
 # 3. Architecture Decisions (ADR Style)
 
 ## ADR-001: Layered Architecture
-
-Decision:
-Use a strict layered architecture:
-
-Controller → Service → Repository → JPA → Database
-
-Reason:
-- Clear separation of concerns
-- Testability
-- Industry-standard backend design
-- Easy migration to microservices
-
+`Controller` → `Service` → `Repository` → `JPA` → `Database`  
 Status: Implemented
-
----
 
 ## ADR-002: DTO Isolation
-
-Decision:
-Use DTOs for request and response models instead of exposing entities directly.
-
-Reason:
-- Avoid leaking persistence model
-- Better API contract control
-- Validation layer separation
-
+Entities separated from API contract models.  
 Status: Implemented
 
----
-
-## ADR-003: API Versioning Strategy
-
-Decision:
-Use URL-based versioning: `/api/v1/...`
-
-Reason:
-- Explicit and clear version control
-- Backward compatibility support
-- Industry standard approach
-
+## ADR-003: API Versioning
+URL-based versioning `/api/v1/...`  
 Status: Implemented
-
----
 
 ## ADR-004: Profile-Based Test Isolation
-
-Decision:
-Use `@ActiveProfiles("test")` and `application-test.yml` with H2.
-
-Reason:
-- Prevent CI from connecting to PostgreSQL
-- Ensure deterministic builds
-- Isolate infrastructure dependencies
-
+H2 for tests, PostgreSQL for prod/docker.  
 Status: Implemented
-
----
 
 ## ADR-005: Maven Wrapper Usage
-
-Decision:
-Use Maven Wrapper (`mvnw`) instead of requiring global Maven installation.
-
-Reason:
-- Version consistency across environments
-- CI portability
-- Zero external dependency requirement
-
-Status: Implemented (wrapper located in order-service module)
-
----
-
-## ADR-006: OpenAPI Integration
-
-Decision:
-Integrate `springdoc-openapi` with Swagger UI.
-
-Reason:
-- Self-documenting API
-- Developer experience improvement
-- Industry-standard API contract visibility
-
+Consistent build tool versioning across environments.  
 Status: Implemented
 
----
+## ADR-006: OpenAPI Integration
+Swagger UI + self-documenting API.  
+Status: Implemented
 
 ## ADR-007: Structured Exception Handling
-
-Decision:
-Use @RestControllerAdvice for centralized exception mapping.
-
-Enhancements:
-- MethodArgumentNotValidException → 400
-- MissingServletRequestParameterException → 400
-- MethodArgumentTypeMismatchException → 400
-- NotFoundException → 404
-- Generic Exception → 500
-
-Reason:
-- Correct HTTP semantics
-- Predictable API error contract
-- Professional-grade behavior
-
-Status: Implemented and verified by tests
-
----
+Centralized error mapping with correct HTTP semantics.  
+Status: Implemented
 
 ## ADR-008: Dockerized Local Environment
+Reproducible runtime via `docker-compose`.  
+Status: Implemented (v0.4.0)
 
-Decision:
-Provide a docker-compose based local runtime (order-service + PostgreSQL) and a Dockerfile build.
+## ADR-009: Coverage Enforcement Strategy
+Enforce coverage thresholds at build level using JaCoCo and fail CI if violated.
 
 Reason:
-- One-command reproducibility for reviewers and recruiters
-- Eliminates local environment drift
-- Aligns dev/prod runtime expectations
+- Prevent regression
+- Maintain quality baseline
+- Provide recruiter-visible quality signal
 
-Status: Implemented (v0.4.0)
+Status: Implemented (v0.5.0)
 
 ---
 
 # 4. Completed Components
 
-## Core Structure
-- Spring Boot 3 project setup
-- Layered architecture folders
-- Clean package organization
+## Core Architecture
+- Clean layered design
+- Strict separation of concerns
 
 ## Domain Layer
 - Order entity
-- OrderStatus enum
-- JPA mappings including @PrePersist defaults
-
-## Persistence Layer
-- OrderRepository (Spring Data JPA)
+- `OrderStatus` enum
+- `@PrePersist` lifecycle defaults
 
 ## Service Layer
-- OrderService with business logic
-- Pagination mapping: Page<OrderResponse>
-- Status update uses transactional dirty checking
+- Business logic encapsulated
+- Transaction boundaries defined
+- Dirty checking update strategy
+
+## Persistence Layer
+- Spring Data JPA repository
 
 ## Web Layer
-- OrderController
-- Versioned endpoints (/api/v1/orders)
-- GET list (paginated)
-- GET by ID
-- POST create
-- PATCH update status
-
-## Validation
-- Jakarta Validation annotations
-- Request DTO validation
+- Versioned REST endpoints
+- Pagination enforced
+- Validation integrated
 
 ## Observability
-- Spring Boot Actuator enabled
-- Health endpoint configured
-- Rabbit health disabled for tests
+- Actuator endpoints
+- Metrics exposure
 
-## Documentation
-- OpenAPI docs available
-- Swagger UI available when enabled
+## Testing Layers
+
+### Web Layer Contract Tests
+- `@WebMvcTest` + `MockMvc`
+- Validation and error mapping verification
+
+### Repository Slice Tests
+- `@DataJpaTest`
+- H2 in-memory DB
+- JPA lifecycle verification
+
+### Service Unit Tests
+- Mockito-based pure unit tests
+- Business logic validation
+- NotFound scenarios
+- Pageable verification
+- Dirty checking behavior validation
 
 ---
 
-# 5. Testing Strategy (Implemented)
+# 5. Code Quality Infrastructure
 
-## Web Layer Contract Tests
-- @WebMvcTest + MockMvc
-- HTTP contract validation
-- JSON structure checks
-- Validation failure scenarios
-- Missing request param behavior
-- Invalid enum behavior
+## JaCoCo Coverage
 
-## Repository Slice Tests
-- @DataJpaTest
-- H2 in-memory database
-- Persistence verification
-- @PrePersist behavior verification
+- Generates HTML report:
+  `services/order-service/target/site/jacoco/index.html`
+- Generates XML report for CI + Codecov
+- Enforces coverage thresholds at build time
+- Fails build if thresholds not met
 
-## Service Unit Tests
-- Mockito based tests (no Spring context)
-- create(), getById(), list(), updateStatus()
-- NotFound scenarios validated
-- DTO mapping validated
-- Pageable construction validated
-- Update behavior validated without explicit save (dirty checking)
+## Codecov Integration
 
-Build status: Passing  
-All tests: Green
+- Coverage uploaded automatically via GitHub Actions
+- Coverage badge in README updates per commit
+- Provides PR-level coverage visibility
+- Enables long-term quality tracking
+
+CI behavior:
+- Tests must pass
+- Coverage must meet threshold
+- Coverage report uploaded as artifact
 
 ---
 
 # 6. Local Runtime
 
-## Docker (recommended for reviewers)
-From repo root:
-- docker compose up --build
+Run via Docker:
+```bash
+docker compose up --build
+```
 
-Expected endpoints:
-- Health: http://localhost:8081/actuator/health
-- Swagger: http://localhost:8081/swagger-ui/index.html (if enabled)
+Endpoints:
+- [http://localhost:8081](http://localhost:8081)
+- [http://localhost:8081/actuator/health](http://localhost:8081/actuator/health)
+- Swagger UI enabled if configured
 
-Notes:
-- docker-compose provisions PostgreSQL
-- order-service uses docker profile and docker network hostnames
-
----
-
-# 7. CI
-
-- GitHub Actions workflow (ci.yml)
-- Maven build + test execution
-- Test profile isolation in place
-
-Status: Functional
+Docker provisions PostgreSQL automatically.
 
 ---
 
-# 8. Versioning
+# 7. CI Pipeline
 
-Current version: 0.4.0  
-Current tag: v0.4.0
+GitHub Actions workflow:
 
-Release discipline:
-- Bump pom version before tagging
-- Tags point to the version bump commit
-- Documentation-only updates do not require a new tag
+- Build
+- Test
+- JaCoCo coverage generation
+- Coverage threshold enforcement
+- Codecov upload
+- Coverage artifact upload
+
+Status: Fully operational
+
+---
+
+# 8. Versioning Discipline
+
+Current version: `0.5.0`  
+Current tag: `v0.5.0`
+
+Release rule:
+1. Implement feature
+2. Bump version
+3. Commit
+4. Tag
+5. Push
+6. Publish release
+
+Documentation-only changes do not trigger new version tags.
 
 ---
 
 # 9. Pending Tasks
 
-### High Priority (portfolio ROI)
-- Add JaCoCo coverage reporting
-- Enforce minimum coverage threshold in CI
-- Add README Quickstart (Docker, endpoints, Swagger)
+## High Priority
+- Add README architecture diagram
+- Improve pagination response standardization
+- Refine error contract (include request path)
 
-### Medium Priority
-- Standardize pagination response shape (PageImpl warning)
-- Improve error contract consistency and include request path
-- Structured logging (request id / correlation id)
-
-### Longer Term (systems depth)
+## Medium Priority
+- Structured request logging (correlation ID)
+- Prometheus metrics export
 - RabbitMQ event publishing (OrderCreatedEvent)
-- Domain events pattern
-- Docker Compose extras (metrics stack: Prometheus)
-- Add a second service (product-service) to demonstrate inter-service contracts
+
+## Long-Term
+- Introduce second service (product-service)
+- Inter-service communication
+- Reliability patterns (Outbox, idempotency)
 
 ---
 
 # 10. Known Issues
 
-1. @MockBean deprecation warning in Spring Boot 3.5.x
-    - Functional, but should be migrated when Spring finalizes the replacement annotation.
-
-2. PageImpl serialization warning
-    - JSON shape not guaranteed stable.
-    - Candidate fix: DTO based pagination wrapper or Spring HATEOAS PagedModel.
-
-3. RabbitMQ starter present but not used yet
-    - Health disabled in tests.
-    - Messaging milestone planned later.
+1. `@MockBean` deprecation warning (Spring Boot 3.5.x)
+2. `PageImpl` JSON serialization stability warning
+3. RabbitMQ dependency present but not yet used
 
 ---
 
-# 11. Next Immediate Step
-
-Milestone proposal: Test Coverage Metrics (JaCoCo) (v0.5.0)
-
-Goal:
-- Generate coverage reports locally and in CI
-- Fail CI if coverage drops below threshold
-- Add coverage badge to README
-
-Reason:
-- Recruiter-visible quality signal
-- Protects against regressions now that tests exist
-
----
-
-# 12. Current Stability Assessment
+# 11. Current Stability Assessment
 
 Build: Passing  
-API: Working  
-Swagger/OpenAPI: Working  
-Validation: Correct HTTP semantics  
-Exception Handling: Correctly mapped  
 Tests: Web + Repository + Service implemented  
-CI: Functional  
-Local Runtime: Dockerized reproducible setup  
-Database: PostgreSQL (prod/docker) + H2 (tests)  
+Coverage: Enforced (≥75% line, ≥60% branch)  
+CI: Fully automated  
+Coverage Badge: Live via Codecov  
+Docker Runtime: Functional  
 Architecture: Clean, extensible, professionally structured
 
-Project maturity level: Professional Backend Baseline (Portfolio Ready)
+Project maturity level:  
+Professional Backend System with Enforced Quality Baseline
 
 ---
 
