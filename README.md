@@ -1,296 +1,208 @@
 # OrderFlow
 
-OrderFlow is a production-oriented backend system designed to demonstrate clean architecture, domain-driven thinking, and scalable microservice patterns using Spring Boot and PostgreSQL.
+![Build](https://github.com/ME-Massine/Orderflow/actions/workflows/ci.yml/badge.svg)
+![Version](https://img.shields.io/badge/version-v0.4.0-blue)
+![Java](https://img.shields.io/badge/Java-17-orange)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-brightgreen)
+![Docker](https://img.shields.io/badge/Docker-Enabled-blue)
 
-OrderFlow models a simplified order lifecycle system where orders are created, validated, persisted, and prepared for asynchronous processing via domain events.
+OrderFlow is a production-oriented backend system built to demonstrate clean architecture, disciplined engineering practices, and portfolio-grade backend maturity using Spring Boot and PostgreSQL.
 
-This project focuses on engineering quality, clarity of design, and real-world backend principles rather than surface complexity.
+------------------------------------------------------------------------
 
----
+## Quickstart (Recommended)
 
-## Project Goals
-
-OrderFlow is built to showcase:
-
-- Clean layered architecture
-- Clear separation of concerns
-- Domain-driven design principles
-- RESTful API best practices
-- Validation and structured error handling
-- Transaction management
-- Observability and metrics
-- Messaging-driven architecture (planned)
-- Incremental, milestone-based development
-
----
-
-## Tech Stack
-
-- Java 17
-- Spring Boot 3
-- Spring Web (REST)
-- Spring Data JPA (Hibernate)
-- PostgreSQL
-- Micrometer + Actuator
-- RabbitMQ (planned)
-- OpenAPI (planned)
-- GitHub Actions (planned)
-
----
-
-## Architecture Overview
-
-### Project Structure
-
-```
-orderflow/
-└── services/
-    └── order-service/
-        ├── controller/
-        ├── service/
-        ├── repository/
-        ├── entity/
-        ├── dto/
-        ├── exception/
-        └── OrderServiceApplication.java
-```
-
-### Layered Architecture
-
-```
-Controller (HTTP layer)
-        ↓
-Service (business logic)
-        ↓
-Repository (data abstraction)
-        ↓
-JPA / Hibernate (ORM)
-        ↓
-PostgreSQL
-```
-
-### Layer Responsibilities
-
-- Controller  
-  Handles HTTP transport logic only.
-
-- Service  
-  Contains business rules and transaction boundaries.
-
-- Repository  
-  Abstracts data access operations.
-
-- Entity  
-  Represents the persistence model.
-
-- DTO  
-  Defines the API contract model.
-
-This strict separation ensures maintainability, testability, and scalability.
-
----
-
-## Current Scope
-
-The current implementation includes:
-
-- Order creation
-- Order retrieval by ID
-- Paginated order listing
-- Order status transitions
-- PostgreSQL persistence
-- Global exception handling
-- Basic observability via Actuator
-
-RabbitMQ and multi-service orchestration are planned in upcoming milestones.
-
----
-
-## Running Locally
+The fastest way to run OrderFlow is via Docker.
 
 ### Requirements
 
-- Java 17
-- PostgreSQL
-- Maven (or IntelliJ built-in Maven)
+-   Docker Desktop
 
----
+### Run
 
-### Database Setup
+From repository root:
 
-Create the database and user:
+docker compose up --build
 
-```sql
-CREATE USER "order" WITH PASSWORD 'order';
-CREATE DATABASE orderdb OWNER "order";
-GRANT ALL PRIVILEGES ON DATABASE orderdb TO "order";
-```
+### Access
 
----
+Service: http://localhost:8081
 
-### Application Configuration
+Health: http://localhost:8081/actuator/health
 
-`application.yml`
+Swagger UI: http://localhost:8081/swagger-ui/index.html
 
-```yaml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/orderdb
-    username: order
-    password: order
-```
+Docker provisions PostgreSQL automatically and configures the service
+via environment variables.
 
----
+------------------------------------------------------------------------
 
-### Start the Service
+## Architecture
 
-Run `OrderServiceApplication` from your IDE.
+OrderFlow follows a strict layered architecture:
 
-The service runs on:
+Controller ↓ Service ↓ Repository ↓ JPA / Hibernate ↓ PostgreSQL
 
-```
-http://localhost:8081
-```
+### Responsibilities
 
-Health check endpoint:
+-   Controller: Handles HTTP transport only.
+-   Service: Contains business logic and transaction boundaries.
+-   Repository: Encapsulates data access.
+-   Entity: Persistence model only.
+-   DTO: API contract model.
 
-```
-http://localhost:8081/actuator/health
-```
+This separation ensures maintainability, scalability, and testability.
 
----
+------------------------------------------------------------------------
+
+## Tech Stack
+
+-   Java 17
+-   Spring Boot 3
+-   Spring Web
+-   Spring Data JPA
+-   PostgreSQL
+-   H2 (test profile)
+-   Spring Boot Actuator
+-   OpenAPI / Swagger
+-   Docker / Docker Compose
+-   GitHub Actions CI
+
+------------------------------------------------------------------------
+
+## API Versioning
+
+All endpoints are versioned:
+
+/api/v1/orders
+
+------------------------------------------------------------------------
 
 ## API Endpoints
 
 ### Create Order
 
-```
-POST /api/orders
-```
+POST /api/v1/orders
 
 Request:
 
-```json
-{
-  "customerId": "c1",
-  "productId": 101,
-  "quantity": 2
-}
-```
+{ "customerId": "c1", "productId": 101, "quantity": 2 }
 
-Response:
+------------------------------------------------------------------------
 
-```json
-{
-  "id": 1,
-  "customerId": "c1",
-  "productId": 101,
-  "quantity": 2,
-  "status": "PENDING",
-  "createdAt": "2026-01-01T10:00:00"
-}
-```
+### Get Order
 
----
+GET /api/v1/orders/{id}
 
-### Get Order By ID
+------------------------------------------------------------------------
 
-```
-GET /api/orders/{id}
-```
+### List Orders
 
----
+GET /api/v1/orders?page=0&size=10
 
-### List Orders (Paginated)
+------------------------------------------------------------------------
 
-```
-GET /api/orders?page=0&size=10
-```
+### Update Status
 
----
+PATCH /api/v1/orders/{id}/status?status=CONFIRMED
 
-### Update Order Status
+Statuses:
 
-```
-PATCH /api/orders/{id}/status?status=CONFIRMED
-```
+-   PENDING
+-   CONFIRMED
+-   CANCELLED
 
-Available statuses:
+------------------------------------------------------------------------
 
-- `PENDING`
-- `CONFIRMED`
-- `CANCELLED`
+## Testing Strategy
 
----
+OrderFlow includes three distinct test layers:
+
+### Web Layer Contract Tests
+
+-   @WebMvcTest
+-   MockMvc
+-   Validation and error handling verification
+
+### Repository Slice Tests
+
+-   @DataJpaTest
+-   H2 in-memory database
+-   JPA mapping verification
+-   @PrePersist validation
+
+### Service Unit Tests
+
+-   Pure Mockito
+-   Business logic validation
+-   Pageable construction verification
+-   NotFound scenarios
+-   Transactional mutation behavior
+
+All tests pass via:
+
+./mvnw test
+
+------------------------------------------------------------------------
 
 ## Observability
 
-OrderFlow includes production-ready monitoring foundations:
+-   Spring Boot Actuator
+-   Health endpoint
+-   Metrics endpoint (Prometheus ready)
+-   Structured JSON error responses
 
-- Spring Boot Actuator
-- Health endpoint
-- Metrics endpoint (expandable)
-- Structured JSON error responses
+------------------------------------------------------------------------
 
-Future expansion may include:
+## Versioning
 
-- Prometheus integration
-- Distributed tracing
-- Centralized logging
+Release discipline:
 
----
+-   Semantic versioning
+-   Version bump before tagging
+-   Tags aligned with pom version
 
-## Key Design Decisions
+Latest release: v0.4.0
 
-- Entities are separated from DTOs to decouple persistence from API contracts.
-- Business logic is confined to the service layer.
-- Controllers contain no domain logic.
-- Transactions are defined at the service layer.
-- Pagination is enforced to avoid unbounded result sets.
-- Conventional Commits are used to maintain a clean history.
-
-## Roadmap
-
-See `ROADMAP.md` for detailed milestone planning.
-
-Upcoming milestones include:
-
-- OpenAPI / Swagger documentation
-- RabbitMQ integration (OrderCreated event)
-- Inventory microservice
-- Integration testing
-- Reliability patterns (Outbox, idempotency)
-- CI/CD pipeline with GitHub Actions
-
----
+------------------------------------------------------------------------
 
 ## Engineering Practices
 
-- Conventional Commits
-- Vertical slice development
-- DTO separation from entities
-- Transactional service methods
-- Global exception handling
-- Pagination for scalable APIs
-- Clean commit history
+-   Conventional Commits
+-   DTO isolation from entities
+-   Transactional service boundaries
+-   Profile-based configuration (dev/test/docker)
+-   CI-based validation
+-   Dockerized reproducible runtime
 
----
+------------------------------------------------------------------------
 
-## Why OrderFlow?
+## Roadmap
 
-OrderFlow simulates real-world backend engineering:
+Upcoming milestone:
 
-- Clear architectural boundaries
-- Messaging-oriented design evolution
-- Domain modeling discipline
-- Incremental system growth
-- Production-oriented thinking
+-   JaCoCo coverage enforcement (v0.5.0)
+-   Coverage threshold in CI
+-   Coverage badge in README
 
-The goal is correctness, clarity, and engineering maturity.
+Future direction:
 
----
+-   RabbitMQ integration (OrderCreated event)
+-   Domain events pattern
+-   Multi-service orchestration
+-   Reliability patterns (idempotency, outbox)
 
-## Status
+------------------------------------------------------------------------
 
-Active development.  
-Built as a portfolio-grade backend system.
+## Why This Project Matters
+
+OrderFlow demonstrates:
+
+-   Architectural discipline
+-   Correct HTTP semantics
+-   Clean test isolation
+-   Reproducible runtime
+-   Production-ready structure
+
+It is built to reflect how real backend systems evolve ---
+incrementally, versioned, and test-driven.
