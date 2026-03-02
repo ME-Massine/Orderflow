@@ -80,8 +80,9 @@ Consistent build tool versioning across environments.
 Status: Implemented
 
 ## ADR-006: OpenAPI Integration
-Swagger UI + self-documenting API.  
-Status: Implemented
+Status: Implemented and Verified
+Swagger UI available at /swagger-ui/index.html
+OpenAPI JSON exposed at /v3/api-docs
 
 ## ADR-007: Structured Exception Handling
 Centralized error mapping with correct HTTP semantics.  
@@ -182,10 +183,16 @@ Run via Docker:
 docker compose up --build
 ```
 
-Endpoints:
-- [http://localhost:8081](http://localhost:8081)
-- [http://localhost:8081/actuator/health](http://localhost:8081/actuator/health)
-- Swagger UI enabled if configured
+Base URL:
+- http://localhost:8081  (no root "/" mapping; API endpoints only)
+
+API Documentation:
+- http://localhost:8081/swagger-ui/index.html
+- http://localhost:8081/v3/api-docs
+
+Observability:
+- http://localhost:8081/actuator/health
+- http://localhost:8081/actuator/metrics
 
 Docker provisions PostgreSQL automatically.
 
