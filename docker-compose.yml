@@ -2,9 +2,9 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_DB: orderflow
-      POSTGRES_USER: orderflow
-      POSTGRES_PASSWORD: orderflow
+      POSTGRES_DB: orderdb
+      POSTGRES_USER: order
+      POSTGRES_PASSWORD: order
     ports:
       - "5432:5432"
     volumes:
@@ -15,11 +15,12 @@ services:
       context: ./services/order-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/orderflow
-      SPRING_DATASOURCE_USERNAME: orderflow
-      SPRING_DATASOURCE_PASSWORD: orderflow
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/orderdb
+      SPRING_DATASOURCE_USERNAME: order
+      SPRING_DATASOURCE_PASSWORD: order
     ports:
-      - "8080:8080"
+      - "8081:8081"
     depends_on:
       - postgres
 

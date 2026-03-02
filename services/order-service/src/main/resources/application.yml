@@ -1,15 +1,14 @@
 server:
-  port: 8081
-
+  port: ${SERVER_PORT:8081}
 
 spring:
   application:
     name: order-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/orderdb
-    username: order
-    password: order
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/orderdb}
+    username: ${SPRING_DATASOURCE_USERNAME:order}
+    password: ${SPRING_DATASOURCE_PASSWORD:order}
 
   jpa:
     hibernate:
