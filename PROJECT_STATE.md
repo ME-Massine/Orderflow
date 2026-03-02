@@ -27,9 +27,9 @@ This project is structured to reflect real-world backend engineering standards.
 
 # 2. Current Milestone
 
-Milestone: Core Order Service Foundation Complete
+Milestone: Service Layer Unit Tests Complete (v0.3.0)
 
-Status: Stable and Versioned
+Status: Stable, Versioned, and Tested
 
 Scope of milestone:
 - CRUD-style order management endpoints
@@ -41,6 +41,15 @@ Scope of milestone:
 - Controller integration tests (MockMvc)
 - Repository slice tests (DataJpaTest)
 - Exception handling corrected for 400 vs 500 responses
+- Service layer unit tests (Mockito)
+    - create()
+    - getById()
+    - list()
+    - updateStatus()
+    - NotFound scenarios
+    - DTO mapping correctness
+    - Pageable construction
+    - Transactional update behavior (dirty checking)
 
 ---
 
@@ -171,7 +180,7 @@ Status: Implemented and verified by tests
 
 ## Service Layer
 - OrderService with business logic
-- Status update handling
+- Status update handling (transactional dirty checking)
 - Pagination support
 
 ## Web Layer
@@ -209,11 +218,20 @@ Status: Implemented and verified by tests
 - Entity persistence verification
 - @PrePersist behavior verification
 
+### Service Layer Unit Tests
+- Pure unit tests with Mockito (no Spring context)
+- create(), getById(), list(), updateStatus()
+- NotFound scenarios validated
+- DTO mapping correctness validated
+- Pageable construction validated
+- updateStatus confirms transactional mutation style (no save required)
+
 ### Test Coverage Scope
 - Controller contract
 - Validation layer
 - Exception handling
 - Repository persistence
+- Service business logic
 
 Build Status: Passing
 All tests: Green
@@ -224,15 +242,14 @@ All tests: Green
 - Failing test issues resolved
 
 ## Versioning
-- Initial project versioning fixed in pom
-- Changelog started
+- Tagged releases: v0.1.0, v0.2.0, v0.3.0
+- pom version aligned with latest tag (0.3.0)
 
 ---
 
 # 5. Pending Tasks
 
 ### High Priority:
-- Service layer unit tests
 - Coverage metrics (Jacoco)
 - Pagination response standardization
 
@@ -272,9 +289,7 @@ All tests: Green
 3. RabbitMQ starter present but not used yet.
    → Will be used in future milestone.
 
-4. No service-layer unit tests yet.
-
-5. No Docker configuration yet.
+4. No Docker configuration yet.
 
 ---
 
@@ -291,19 +306,16 @@ All tests: Green
 
 Recommended next step:
 
-Add Service Layer Unit Tests
+Add coverage metrics (Jacoco) and enforce minimum thresholds
 
 Specifically:
-- Test create logic behavior
-- Test status transition rules
-- Test NotFound scenarios
-- Test pagination mapping
+- Add Jacoco plugin
+- Generate report in CI
+- Fail build if coverage drops below threshold
 
 Why:
-Controller and repository layers are validated.
-Service logic is the last untested core business layer.
-
-This elevates the project to a fully disciplined backend baseline.
+Service, repository, and web layers now have meaningful automated tests.
+Coverage reporting makes quality measurable and prevents regression.
 
 ---
 
@@ -331,12 +343,13 @@ Phase 4:
 Build: Passing  
 Swagger: Working  
 API Versioning: Working  
-Validation: Correct HTTP semantics
-Exception Handling: Correctly mapped
-Integration Tests: Implemented
-Repository Tests: Implemented
-CI: Functional
-Database: PostgreSQL (prod) + H2 (test)
+Validation: Correct HTTP semantics  
+Exception Handling: Correctly mapped  
+Integration Tests: Implemented  
+Repository Tests: Implemented  
+Service Unit Tests: Implemented  
+CI: Functional  
+Database: PostgreSQL (prod) + H2 (test)  
 Architecture: Clean, extensible, professionally structured
 
 Project maturity level: Professional Backend Baseline
