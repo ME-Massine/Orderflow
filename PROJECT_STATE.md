@@ -5,6 +5,8 @@ Type: Systems-focused backend engineering project
 Primary Stack: Spring Boot 3, PostgreSQL, JPA, Actuator, OpenAPI  
 Language: Java 17
 
+Repository layout: mono-repo (services/order-service)
+
 ---
 
 # 1. Project Vision
@@ -20,36 +22,38 @@ OrderFlow is a production-grade backend service designed to demonstrate:
 - Versioned APIs
 - CI pipeline integration
 - Test isolation via profile-based configuration
+- Reproducible local environment via Docker
 
-This project is structured to reflect real-world backend engineering standards.
+This project is structured to reflect real-world backend engineering standards and be portfolio-ready.
 
 ---
 
 # 2. Current Milestone
 
-Milestone: Service Layer Unit Tests Complete (v0.3.0)
+Milestone: Dockerized Local Run + Portfolio-Ready Setup (v0.4.0)
 
-Status: Stable, Versioned, and Tested
+Status: Stable, Versioned, Tested, Reproducible
 
-Scope of milestone:
+Scope of milestone (now complete):
 - CRUD-style order management endpoints
 - API versioning introduced (/api/v1/...)
 - OpenAPI documentation integrated
-- Test profile configured
+- Test profile configured (H2)
 - CI pipeline executing Maven tests
-- Project versioning initialized
-- Controller integration tests (MockMvc)
-- Repository slice tests (DataJpaTest)
+- Controller contract tests (MockMvc via @WebMvcTest)
+- Repository slice tests (@DataJpaTest)
 - Exception handling corrected for 400 vs 500 responses
-- Service layer unit tests (Mockito)
-    - create()
-    - getById()
-    - list()
-    - updateStatus()
-    - NotFound scenarios
-    - DTO mapping correctness
-    - Pageable construction
-    - Transactional update behavior (dirty checking)
+- Service layer unit tests (Mockito, no Spring context)
+- Dockerfile (multi-stage build) for order-service
+- docker-compose (order-service + PostgreSQL)
+- Docker profile configuration (application-docker.yml)
+- pom version aligned with release tag (0.4.0)
+
+Release tags:
+- v0.1.0 baseline
+- v0.2.0 integration tests
+- v0.3.0 service unit tests
+- v0.4.0 dockerized local run
 
 ---
 
@@ -142,7 +146,7 @@ Status: Implemented
 
 ---
 
-## ADR-007 – Structured Exception Handling
+## ADR-007: Structured Exception Handling
 
 Decision:
 Use @RestControllerAdvice for centralized exception mapping.
@@ -163,6 +167,20 @@ Status: Implemented and verified by tests
 
 ---
 
+## ADR-008: Dockerized Local Environment
+
+Decision:
+Provide a docker-compose based local runtime (order-service + PostgreSQL) and a Dockerfile build.
+
+Reason:
+- One-command reproducibility for reviewers and recruiters
+- Eliminates local environment drift
+- Aligns dev/prod runtime expectations
+
+Status: Implemented (v0.4.0)
+
+---
+
 # 4. Completed Components
 
 ## Core Structure
@@ -172,16 +190,16 @@ Status: Implemented and verified by tests
 
 ## Domain Layer
 - Order entity
-- Status enum
-- JPA mappings
+- OrderStatus enum
+- JPA mappings including @PrePersist defaults
 
 ## Persistence Layer
 - OrderRepository (Spring Data JPA)
 
 ## Service Layer
 - OrderService with business logic
-- Status update handling (transactional dirty checking)
-- Pagination support
+- Pagination mapping: Page<OrderResponse>
+- Status update uses transactional dirty checking
 
 ## Web Layer
 - OrderController
@@ -196,163 +214,147 @@ Status: Implemented and verified by tests
 - Request DTO validation
 
 ## Observability
-- Spring Boot Actuator integrated
+- Spring Boot Actuator enabled
+- Health endpoint configured
+- Rabbit health disabled for tests
 
 ## Documentation
-- Swagger UI functional
-- /v3/api-docs endpoint working
+- OpenAPI docs available
+- Swagger UI available when enabled
 
-## Testing
+---
 
-### Web Layer Integration Tests
-- @WebMvcTest
-- MockMvc HTTP contract validation
-- JSON structure verification
+# 5. Testing Strategy (Implemented)
+
+## Web Layer Contract Tests
+- @WebMvcTest + MockMvc
+- HTTP contract validation
+- JSON structure checks
 - Validation failure scenarios
-- Enum mismatch handling
-- Missing parameter handling
+- Missing request param behavior
+- Invalid enum behavior
 
-### Repository Tests
+## Repository Slice Tests
 - @DataJpaTest
 - H2 in-memory database
-- Entity persistence verification
+- Persistence verification
 - @PrePersist behavior verification
 
-### Service Layer Unit Tests
-- Pure unit tests with Mockito (no Spring context)
+## Service Unit Tests
+- Mockito based tests (no Spring context)
 - create(), getById(), list(), updateStatus()
 - NotFound scenarios validated
-- DTO mapping correctness validated
+- DTO mapping validated
 - Pageable construction validated
-- updateStatus confirms transactional mutation style (no save required)
+- Update behavior validated without explicit save (dirty checking)
 
-### Test Coverage Scope
-- Controller contract
-- Validation layer
-- Exception handling
-- Repository persistence
-- Service business logic
-
-Build Status: Passing
+Build status: Passing  
 All tests: Green
 
-## CI
+---
+
+# 6. Local Runtime
+
+## Docker (recommended for reviewers)
+From repo root:
+- docker compose up --build
+
+Expected endpoints:
+- Health: http://localhost:8081/actuator/health
+- Swagger: http://localhost:8081/swagger-ui/index.html (if enabled)
+
+Notes:
+- docker-compose provisions PostgreSQL
+- order-service uses docker profile and docker network hostnames
+
+---
+
+# 7. CI
+
 - GitHub Actions workflow (ci.yml)
 - Maven build + test execution
-- Failing test issues resolved
+- Test profile isolation in place
 
-## Versioning
-- Tagged releases: v0.1.0, v0.2.0, v0.3.0
-- pom version aligned with latest tag (0.3.0)
+Status: Functional
 
 ---
 
-# 5. Pending Tasks
+# 8. Versioning
 
-### High Priority:
-- Coverage metrics (Jacoco)
-- Pagination response standardization
+Current version: 0.4.0  
+Current tag: v0.4.0
 
-### Medium Priority:
-- Structured request logging
-- Correlation IDs
-- Improve error contract consistency
-
-### Infrastructure:
-- Dockerize order-service
-- Add docker-compose with PostgreSQL
-- Add health endpoint readiness/liveness separation
-
-### Observability:
-- Add metrics tagging
-- Enable Prometheus export
-
-### Architecture:
-- Prepare for RabbitMQ event publishing (future milestone)
-- Introduce domain events pattern
-
-### Documentation:
-- Add architecture diagram (Mermaid)
-- Expand README with run instructions
+Release discipline:
+- Bump pom version before tagging
+- Tags point to the version bump commit
+- Documentation-only updates do not require a new tag
 
 ---
 
-# 6. Known Issues
+# 9. Pending Tasks
+
+### High Priority (portfolio ROI)
+- Add JaCoCo coverage reporting
+- Enforce minimum coverage threshold in CI
+- Add README Quickstart (Docker, endpoints, Swagger)
+
+### Medium Priority
+- Standardize pagination response shape (PageImpl warning)
+- Improve error contract consistency and include request path
+- Structured logging (request id / correlation id)
+
+### Longer Term (systems depth)
+- RabbitMQ event publishing (OrderCreatedEvent)
+- Domain events pattern
+- Docker Compose extras (metrics stack: Prometheus)
+- Add a second service (product-service) to demonstrate inter-service contracts
+
+---
+
+# 10. Known Issues
 
 1. @MockBean deprecation warning in Spring Boot 3.5.x
-   → Functional but flagged for future migration.
+    - Functional, but should be migrated when Spring finalizes the replacement annotation.
 
 2. PageImpl serialization warning
-   → JSON shape not guaranteed stable.
-   → Can be improved with DTO-based pagination model.
+    - JSON shape not guaranteed stable.
+    - Candidate fix: DTO based pagination wrapper or Spring HATEOAS PagedModel.
 
-3. RabbitMQ starter present but not used yet.
-   → Will be used in future milestone.
-
-4. No Docker configuration yet.
-
----
-
-# 7. Technical Debt
-
-- Exception handling not fully standardized
-- No test coverage metrics
-- No structured logging correlation IDs
-- No request tracing integration
+3. RabbitMQ starter present but not used yet
+    - Health disabled in tests.
+    - Messaging milestone planned later.
 
 ---
 
-# 8. Next Immediate Step
+# 11. Next Immediate Step
 
-Recommended next step:
+Milestone proposal: Test Coverage Metrics (JaCoCo) (v0.5.0)
 
-Add coverage metrics (Jacoco) and enforce minimum thresholds
+Goal:
+- Generate coverage reports locally and in CI
+- Fail CI if coverage drops below threshold
+- Add coverage badge to README
 
-Specifically:
-- Add Jacoco plugin
-- Generate report in CI
-- Fail build if coverage drops below threshold
-
-Why:
-Service, repository, and web layers now have meaningful automated tests.
-Coverage reporting makes quality measurable and prevents regression.
+Reason:
+- Recruiter-visible quality signal
+- Protects against regressions now that tests exist
 
 ---
 
-# 9. Long-Term Roadmap
-
-Phase 2:
-- RabbitMQ event publishing
-- OrderCreatedEvent
-- Message contract design
-
-Phase 3:
-- Extract into microservice-ready structure
-- Add product-service
-- Introduce inter-service communication
-
-Phase 4:
-- Add caching (Redis)
-- Add idempotency handling
-- Add API rate limiting
-
----
-
-# 10. Current Stability Assessment
+# 12. Current Stability Assessment
 
 Build: Passing  
-Swagger: Working  
-API Versioning: Working  
+API: Working  
+Swagger/OpenAPI: Working  
 Validation: Correct HTTP semantics  
 Exception Handling: Correctly mapped  
-Integration Tests: Implemented  
-Repository Tests: Implemented  
-Service Unit Tests: Implemented  
+Tests: Web + Repository + Service implemented  
 CI: Functional  
-Database: PostgreSQL (prod) + H2 (test)  
+Local Runtime: Dockerized reproducible setup  
+Database: PostgreSQL (prod/docker) + H2 (tests)  
 Architecture: Clean, extensible, professionally structured
 
-Project maturity level: Professional Backend Baseline
+Project maturity level: Professional Backend Baseline (Portfolio Ready)
 
 ---
 
