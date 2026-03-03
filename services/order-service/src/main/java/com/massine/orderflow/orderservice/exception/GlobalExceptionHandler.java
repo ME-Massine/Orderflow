@@ -1,5 +1,7 @@
 package com.massine.orderflow.orderservice.exception;
 
+import com.massine.orderflow.orderservice.dto.common.ApiError;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -16,50 +18,71 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(NotFoundException.class)
-    public ResponseEntity<?> handleNotFound(NotFoundException ex) {
+    public ResponseEntity<ApiError> handleNotFound(NotFoundException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(errorBody(HttpStatus.NOT_FOUND, ex.getMessage()));
+                .body(apiError(HttpStatus.NOT_FOUND, ex.getMessage(), request));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<?> handleValidation(MethodArgumentNotValidException ex) {
+    public ResponseEntity<ValidationError> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
         Map<String, String> fieldErrors = new HashMap<>();
         ex.getBindingResult()
                 .getFieldErrors()
                 .forEach(err -> fieldErrors.put(err.getField(), err.getDefaultMessage()));
 
-        Map<String, Object> body = errorBody(HttpStatus.BAD_REQUEST, "Validation failed");
-        body.put("fieldErrors", fieldErrors);
+        ValidationError body = new ValidationError(
+                Instant.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                "Validation failed",
+                request.getRequestURI(),
+                fieldErrors
+        );
 
         return ResponseEntity.badRequest().body(body);
     }
 
     // Missing request param, e.g. PATCH /.../status without ?status=...
     @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<?> handleMissingParam(MissingServletRequestParameterException ex) {
+    public ResponseEntity<ApiError> handleMissingParam(MissingServletRequestParameterException ex, HttpServletRequest request) {
         return ResponseEntity.badRequest()
-                .body(errorBody(HttpStatus.BAD_REQUEST, ex.getMessage()));
+                .body(apiError(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
     }
 
     // Type mismatch, e.g. status=SHIPPED when enum doesn't contain it
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<?> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+    public ResponseEntity<ApiError> handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        // You can optionally replace ex.getMessage() with a more user-friendly message.
         return ResponseEntity.badRequest()
-                .body(errorBody(HttpStatus.BAD_REQUEST, ex.getMessage()));
+                .body(apiError(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<?> handleGeneric(Exception ex) {
+    public ResponseEntity<ApiError> handleGeneric(Exception ex, HttpServletRequest request) {
+        // Consider logging ex with a logger; do not leak internal exception details to clients.
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(errorBody(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error"));
+                .body(apiError(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error", request));
     }
 
-    private Map<String, Object> errorBody(HttpStatus status, String message) {
-        Map<String, Object> body = new HashMap<>();
-        body.put("timestamp", Instant.now().toString());
-        body.put("status", status.value());
-        body.put("error", status.getReasonPhrase());
-        body.put("message", message);
-        return body;
+    private ApiError apiError(HttpStatus status, String message, HttpServletRequest request) {
+        return new ApiError(
+                Instant.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                message,
+                request.getRequestURI()
+        );
     }
+
+    /**
+     * Dedicated validation error contract (keeps ApiError stable and typed).
+     */
+    public record ValidationError(
+            Instant timestamp,
+            int status,
+            String error,
+            String message,
+            String path,
+            Map<String, String> fieldErrors
+    ) {}
 }

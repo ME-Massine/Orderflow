@@ -7,13 +7,11 @@ import com.massine.orderflow.orderservice.entity.OrderStatus;
 import com.massine.orderflow.orderservice.exception.NotFoundException;
 import com.massine.orderflow.orderservice.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-
-import java.util.List;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -40,10 +38,22 @@ public class OrderService {
         return toResponse(order);
     }
 
+    /**
+     * v0.6.0: preferred paging API for controllers.
+     * Keeps controller clean and allows Spring to bind page/size/sort automatically.
+     */
+    @Transactional(readOnly = true)
+    public Page<OrderResponse> listOrders(Pageable pageable) {
+        return repo.findAll(pageable).map(this::toResponse);
+    }
+
+    /**
+     * Backward-compatible helper (can be removed later if unused).
+     */
     @Transactional(readOnly = true)
     public Page<OrderResponse> list(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return repo.findAll(pageable).map(this::toResponse);
+        return listOrders(pageable);
     }
 
     @Transactional

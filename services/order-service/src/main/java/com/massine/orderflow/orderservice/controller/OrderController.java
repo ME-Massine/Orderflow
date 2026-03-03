@@ -1,5 +1,6 @@
 package com.massine.orderflow.orderservice.controller;
 
+import com.massine.orderflow.orderservice.dto.common.PageResponse;
 import com.massine.orderflow.orderservice.entity.OrderStatus;
 import com.massine.orderflow.orderservice.dto.CreateOrderRequest;
 import com.massine.orderflow.orderservice.dto.OrderResponse;
@@ -7,10 +8,9 @@ import com.massine.orderflow.orderservice.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/orders")
@@ -31,11 +31,9 @@ public class OrderController {
     }
 
     @GetMapping
-    public Page<OrderResponse> list(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
-    ) {
-        return service.list(page, size);
+    public PageResponse<OrderResponse> listOrders(Pageable pageable) {
+        Page<OrderResponse> page = service.listOrders(pageable);
+        return PageResponse.from(page);
     }
 
     @PatchMapping("/{id}/status")

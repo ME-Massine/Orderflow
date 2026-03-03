@@ -14,6 +14,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -124,14 +125,29 @@ class OrderControllerWebMvcTest {
                 .status(OrderStatus.CANCELLED).createdAt(Instant.parse("2026-02-28T00:10:00Z"))
                 .build();
 
-        Page<OrderResponse> page = new PageImpl<>(List.of(r1, r2));
+        // Important: include paging metadata so totalElements/totalPages are deterministic
+        Page<OrderResponse> page = new PageImpl<>(
+                List.of(r1, r2),
+                PageRequest.of(0, 10),
+                2
+        );
 
-        when(service.list(0, 10)).thenReturn(page);
+        // Controller now calls service.listOrders(Pageable), not service.list(int,int)
+        when(service.listOrders(ArgumentMatchers.any())).thenReturn(page);
 
         mockMvc.perform(get("/api/v1/orders?page=0&size=10"))
                 .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+
+                // New PageResponse envelope assertions
                 .andExpect(jsonPath("$.content").isArray())
                 .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(10))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.totalPages").value(1))
+
+                // Content assertions remain valid
                 .andExpect(jsonPath("$.content[0].id").value(1))
                 .andExpect(jsonPath("$.content[1].status").value("CANCELLED"));
     }
@@ -147,7 +163,7 @@ class OrderControllerWebMvcTest {
                 .createdAt(Instant.parse("2026-02-28T02:00:00Z"))
                 .build();
 
-        when(service.updateStatus( 7L, OrderStatus.CONFIRMED)).thenReturn(resp);
+        when(service.updateStatus(7L, OrderStatus.CONFIRMED)).thenReturn(resp);
 
         // NOTE: status is a request param in your controller
         mockMvc.perform(patch("/api/v1/orders/7/status")
