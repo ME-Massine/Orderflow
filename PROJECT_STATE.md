@@ -5,17 +5,16 @@ Type: Systems-focused backend engineering project
 Primary Stack: Spring Boot 3, PostgreSQL, JPA, Actuator, OpenAPI  
 Language: Java 17
 
-Repository layout: `mono-repo (services/order-service)`
+Repository layout: mono-repo (`services/order-service`)
 
 ---
 
 # 1. Project Vision
 
-OrderFlow is a production-grade backend service designed to demonstrate:
+OrderFlow is a production-oriented backend service designed to demonstrate:
 
 - Clean layered architecture
-- Domain-driven structure
-- REST API best practices
+- REST API best practices and contract stability
 - Validation and structured error handling
 - Transaction management
 - Observability (Actuator + Metrics)
@@ -31,40 +30,44 @@ This project reflects real-world backend engineering maturity and portfolio read
 
 # 2. Current Milestone
 
-Milestone: Coverage Enforcement + Code Quality Automation (v0.5.0)
+Milestone: API Contract Stabilization (v0.6.0)
 
-Status: Stable, Versioned, Tested, Measurable
+Status: Stable, Versioned, Tested, Contract-hardened
 
-Scope of milestone (now complete):
+Scope of milestone (complete):
 
-- JaCoCo coverage instrumentation
-- XML + HTML coverage report generation
-- Enforced minimum coverage thresholds:
-    - Line coverage ≥ 75%
-    - Branch coverage ≥ 60%
-- CI failure if coverage drops below threshold
-- Codecov integration
-- Auto-updating coverage badge in README
-- CI artifact upload of JaCoCo report
-- `pom` version aligned with tag (0.5.0)
+- Standardized pagination response via `PageResponse<T>` envelope
+    - Prevents leaking Spring internal paging types to API consumers
+    - Provides stable pagination metadata: `content`, `page`, `size`, `totalElements`, `totalPages`
+- Refined error contract for stable client consumption
+    - Introduced `ApiError` DTO including request `path`
+    - Introduced `ValidationError` DTO including `fieldErrors` and request `path`
+    - Centralized error responses via `GlobalExceptionHandler`
+- Service contract improvement
+    - Added `listOrders(Pageable)` to align controller paging with Spring pageable binding
+- Test updates
+    - Updated `@WebMvcTest` assertions to validate the new pagination envelope and typed error responses
+    - All tests remain green with JaCoCo reporting
 
 Release tags:
-- `v0.1.0` baseline
-- `v0.2.0` integration tests
-- `v0.3.0` service unit tests
-- `v0.4.0` dockerized local run
-- `v0.5.0` coverage enforcement + Codecov
+
+- `v0.1.0` Order Service MVP
+- `v0.2.0` Integration Testing Layer
+- `v0.3.0` Service Layer Unit Tests
+- `v0.4.0` Dockerized local run
+- `v0.5.0` Coverage enforcement + Codecov
+- `v0.6.0` API contract stabilization (pagination + typed errors)
 
 ---
 
 # 3. Architecture Decisions (ADR Style)
 
 ## ADR-001: Layered Architecture
-`Controller` → `Service` → `Repository` → `JPA` → `Database`  
+`Controller` -> `Service` -> `Repository` -> `JPA` -> `Database`  
 Status: Implemented
 
 ## ADR-002: DTO Isolation
-Entities separated from API contract models.  
+Entities are separated from API contract models.  
 Status: Implemented
 
 ## ADR-003: API Versioning
@@ -80,27 +83,25 @@ Consistent build tool versioning across environments.
 Status: Implemented
 
 ## ADR-006: OpenAPI Integration
-Status: Implemented and Verified
-Swagger UI available at /swagger-ui/index.html
-OpenAPI JSON exposed at /v3/api-docs
+Status: Implemented and verified  
+Swagger UI: [http://localhost:8081/swagger-ui/index.html](http://localhost:8081/swagger-ui/index.html)  
+OpenAPI JSON: [http://localhost:8081/v3/api-docs](http://localhost:8081/v3/api-docs)
 
 ## ADR-007: Structured Exception Handling
 Centralized error mapping with correct HTTP semantics.  
-Status: Implemented
+Status: Implemented and stabilized (`v0.6.0` typed contracts)
 
 ## ADR-008: Dockerized Local Environment
-Reproducible runtime via `docker-compose`.  
-Status: Implemented (v0.4.0)
+Reproducible runtime via `Docker Compose`.  
+Status: Implemented (`v0.4.0`)
 
 ## ADR-009: Coverage Enforcement Strategy
-Enforce coverage thresholds at build level using JaCoCo and fail CI if violated.
+Enforce coverage thresholds at build level using `JaCoCo` and fail CI if violated.  
+Status: Implemented (`v0.5.0`)
 
-Reason:
-- Prevent regression
-- Maintain quality baseline
-- Provide recruiter-visible quality signal
-
-Status: Implemented (v0.5.0)
+## ADR-010: API Contract Stabilization
+Expose stable pagination and error response shapes independent from Spring internals.  
+Status: Implemented (`v0.6.0`)
 
 ---
 
@@ -108,46 +109,47 @@ Status: Implemented (v0.5.0)
 
 ## Core Architecture
 - Clean layered design
-- Strict separation of concerns
+- Separation of concerns enforced by package structure
 
 ## Domain Layer
-- Order entity
+- `Order` entity
 - `OrderStatus` enum
 - `@PrePersist` lifecycle defaults
 
 ## Service Layer
 - Business logic encapsulated
-- Transaction boundaries defined
+- Transaction boundaries defined (`@Transactional`)
 - Dirty checking update strategy
+- Pageable-based listing supported (`listOrders(Pageable)`)
 
 ## Persistence Layer
-- Spring Data JPA repository
+- Spring Data JPA repository (`OrderRepository`)
 
 ## Web Layer
-- Versioned REST endpoints
-- Pagination enforced
-- Validation integrated
+- Versioned REST endpoints (`/api/v1/orders`)
+- Validation integrated (`@Valid`)
+- Pagination supported and stabilized via `PageResponse<T>`
+- Typed error contracts returned from centralized handler
 
 ## Observability
-- Actuator endpoints
-- Metrics exposure
+- Actuator endpoints enabled
+- Health endpoint verified
 
 ## Testing Layers
 
 ### Web Layer Contract Tests
 - `@WebMvcTest` + `MockMvc`
-- Validation and error mapping verification
+- Validates controller contracts, pagination envelope, and error mapping
 
 ### Repository Slice Tests
 - `@DataJpaTest`
-- H2 in-memory DB
-- JPA lifecycle verification
+- H2 in-memory database
+- JPA mapping and lifecycle verification
 
 ### Service Unit Tests
 - Mockito-based pure unit tests
 - Business logic validation
 - NotFound scenarios
-- Pageable verification
 - Dirty checking behavior validation
 
 ---
@@ -162,16 +164,19 @@ Status: Implemented (v0.5.0)
 - Enforces coverage thresholds at build time
 - Fails build if thresholds not met
 
+Coverage thresholds:
+- Line coverage `>= 75%`
+- Branch coverage `>= 60%`
+
 ## Codecov Integration
 
 - Coverage uploaded automatically via GitHub Actions
-- Coverage badge in README updates per commit
-- Provides PR-level coverage visibility
-- Enables long-term quality tracking
+- Coverage badge updates per commit
+- PR-level coverage visibility
 
 CI behavior:
 - Tests must pass
-- Coverage must meet threshold
+- Coverage must meet thresholds
 - Coverage report uploaded as artifact
 
 ---
@@ -184,15 +189,21 @@ docker compose up --build
 ```
 
 Base URL:
-- http://localhost:8081  (no root "/" mapping; API endpoints only)
 
-API Documentation:
-- http://localhost:8081/swagger-ui/index.html
-- http://localhost:8081/v3/api-docs
+[http://localhost:8081](http://localhost:8081)
+(no root "/" mapping; API endpoints only)
+
+API documentation:
+
+[http://localhost:8081/swagger-ui/index.html](http://localhost:8081/swagger-ui/index.html)
+
+[http://localhost:8081/v3/api-docs](http://localhost:8081/v3/api-docs)
 
 Observability:
-- http://localhost:8081/actuator/health
-- http://localhost:8081/actuator/metrics
+
+[http://localhost:8081/actuator/health](http://localhost:8081/actuator/health)
+
+[http://localhost:8081/actuator/metrics](http://localhost:8081/actuator/metrics)
 
 Docker provisions PostgreSQL automatically.
 
@@ -215,8 +226,8 @@ Status: Fully operational
 
 # 8. Versioning Discipline
 
-Current version: `0.5.0`  
-Current tag: `v0.5.0`
+Current version: `0.6.0`
+Current tag: `v0.6.0`
 
 Release rule:
 1. Implement feature
@@ -224,9 +235,9 @@ Release rule:
 3. Commit
 4. Tag
 5. Push
-6. Publish release
+6. Publish GitHub Release
 
-Documentation-only changes do not trigger new version tags.
+Documentation-only changes do not require new version tags (unless they affect the release narrative).
 
 ---
 
@@ -234,41 +245,42 @@ Documentation-only changes do not trigger new version tags.
 
 ## High Priority
 - Add README architecture diagram
-- Improve pagination response standardization
-- Refine error contract (include request path)
+- Add explicit OpenAPI annotations for standardized response models (optional polish)
+- Add a compact API contract section in README showing `PageResponse<T>` and `ApiError` schemas (portfolio polish)
 
 ## Medium Priority
-- Structured request logging (correlation ID)
+- Structured request logging with correlation ID
 - Prometheus metrics export
-- RabbitMQ event publishing (OrderCreatedEvent)
+- RabbitMQ event publishing (`OrderCreatedEvent`) and clean ADR for messaging
 
 ## Long-Term
 - Introduce second service (product-service)
-- Inter-service communication
+- Inter-service communication patterns
 - Reliability patterns (Outbox, idempotency)
 
 ---
 
 # 10. Known Issues
 
-1. `@MockBean` deprecation warning (Spring Boot 3.5.x)
-2. `PageImpl` JSON serialization stability warning
-3. RabbitMQ dependency present but not yet used
+1. `@MockBean` deprecation warning (Spring Boot 3.5.x) in tests
+2. `RabbitMQ` dependency present but not yet used (planned milestone)
+3. Ensure README version badge is not stale after releases
 
 ---
 
 # 11. Current Stability Assessment
 
-Build: Passing  
-Tests: Web + Repository + Service implemented  
-Coverage: Enforced (≥75% line, ≥60% branch)  
-CI: Fully automated  
-Coverage Badge: Live via Codecov  
-Docker Runtime: Functional  
+Build: Passing
+Tests: Web + Repository + Service implemented and passing
+Coverage: Enforced (`>=75%` line, `>=60%` branch)
+CI: Fully automated
+Coverage Badge: Live via Codecov
+Docker Runtime: Functional
+API Contract: Stabilized (pagination envelope + typed error contracts)
 Architecture: Clean, extensible, professionally structured
 
-Project maturity level:  
-Professional Backend System with Enforced Quality Baseline
+Project maturity level:
+Professional backend service with enforced quality baseline and stable external API contracts
 
 ---
 
