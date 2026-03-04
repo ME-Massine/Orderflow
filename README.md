@@ -28,40 +28,29 @@ OrderFlow is a production-oriented backend service designed to demonstrate real-
 
 ```mermaid
 flowchart TD
+  client["API Client"] --> controller["OrderController (/api/v1/orders)"]
+  controller --> service["OrderService"]
+  service --> repo["OrderRepository"]
+  repo --> jpa["JPA / Hibernate"]
+  jpa --> db["PostgreSQL"]
 
-Client[API Client]
+  controller --> validation["Bean Validation (Valid)"]
+  controller --> exceptions["GlobalExceptionHandler"]
+  exceptions --> apiError["ApiError"]
+  exceptions --> validationError["ValidationError"]
 
-Client --> Controller[OrderController\n/api/v1/orders]
+  controller --> openapi["OpenAPI / Swagger UI"]
+  service --> tx["Transactions (Transactional)"]
 
-Controller --> Service[OrderService]
-
-Service --> Repository[OrderRepository]
-
-Repository --> JPA["JPA / Hibernate"]
-
-JPA --> PostgreSQL[(PostgreSQL)]
-
-Controller --> Validation[Bean Validation\n@Valid]
-
-Controller --> Exceptions[GlobalExceptionHandler]
-
-Exceptions --> ApiError[ApiError]
-
-Exceptions --> ValidationError[ValidationError]
-
-Service --> Tx[Transactional Boundary]
-
-Controller --> OpenAPI[Swagger / OpenAPI]
-
-subgraph Testing
-WebMvc[@WebMvcTest]
-ServiceTests[Service Unit Tests]
-JpaTests[@DataJpaTest]
-Coverage[JaCoCo Coverage]
-WebMvc --> Coverage
-ServiceTests --> Coverage
-JpaTests --> Coverage
-end
+  subgraph testing["Testing"]
+    webmvc["WebMvcTest (MockMvc)"]
+    unit["Service Unit Tests (Mockito)"]
+    datajpa["DataJpaTest (H2)"]
+    jacoco["JaCoCo Coverage"]
+    webmvc --> jacoco
+    unit --> jacoco
+    datajpa --> jacoco
+  end
 ```
 
 ---
