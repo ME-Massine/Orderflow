@@ -81,18 +81,6 @@ Docker provisions PostgreSQL automatically and configures the service via enviro
 
 ---
 
-## Architecture
-
-OrderFlow follows a strict layered architecture:
-
-```mermaid
-graph TD
-    Controller --> Service
-    Service --> Repository
-    Repository --> JPA["JPA / Hibernate"]
-    JPA --> PostgreSQL
-```
-
 ### Responsibilities
 
 - Controller: Handles HTTP transport only.
