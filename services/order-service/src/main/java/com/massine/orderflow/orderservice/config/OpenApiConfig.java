@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Configuration;
 @OpenAPIDefinition(
         info = @Info(
                 title = "OrderFlow - Order Service API",
-                version = "v0.5.0",
+                version = "${spring.application.version}",
                 description = "Order management API for OrderFlow (create, retrieve, list, status update)."
         )
 )

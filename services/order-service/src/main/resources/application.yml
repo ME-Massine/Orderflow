@@ -4,6 +4,7 @@ server:
 spring:
   application:
     name: order-service
+    version: ${APP_VERSION:0.6.0}
 
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/orderdb}
