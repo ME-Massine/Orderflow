@@ -1,9 +1,11 @@
 package com.massine.orderflow.orderservice.exception;
 
 import com.massine.orderflow.orderservice.dto.common.ApiError;
+import com.massine.orderflow.orderservice.dto.common.ValidationError;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -42,6 +44,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
+    // Malformed JSON, wrong JSON types, etc.
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> handleNotReadable(HttpMessageNotReadableException ex, HttpServletRequest request) {
+        return ResponseEntity.badRequest()
+                .body(apiError(HttpStatus.BAD_REQUEST, "Malformed JSON request", request));
+    }
+
     // Missing request param, e.g. PATCH /.../status without ?status=...
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ApiError> handleMissingParam(MissingServletRequestParameterException ex, HttpServletRequest request) {
@@ -52,14 +61,12 @@ public class GlobalExceptionHandler {
     // Type mismatch, e.g. status=SHIPPED when enum doesn't contain it
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiError> handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
-        // You can optionally replace ex.getMessage() with a more user-friendly message.
         return ResponseEntity.badRequest()
                 .body(apiError(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleGeneric(Exception ex, HttpServletRequest request) {
-        // Consider logging ex with a logger; do not leak internal exception details to clients.
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(apiError(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error", request));
     }
@@ -73,16 +80,4 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
     }
-
-    /**
-     * Dedicated validation error contract (keeps ApiError stable and typed).
-     */
-    public record ValidationError(
-            Instant timestamp,
-            int status,
-            String error,
-            String message,
-            String path,
-            Map<String, String> fieldErrors
-    ) {}
 }
