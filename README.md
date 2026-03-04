@@ -24,7 +24,29 @@ OrderFlow is a production-oriented backend service designed to demonstrate real-
 
 ---
 
-## Architecture
+## Repository Structure
+
+services/
+order-service/
+controller/
+service/
+repository/
+entity/
+dto/
+exception/
+messaging/
+config/
+event/
+publisher/
+
+tests/
+controller/
+repository/
+service/
+
+---
+
+## Layered Architecture
 
 ```mermaid
 flowchart TD
@@ -52,6 +74,108 @@ flowchart TD
     datajpa --> jacoco
   end
 ```
+
+---
+
+## Event-Driven Architecture
+
+```mermaid
+flowchart LR
+
+Client -->|HTTP POST /orders| OrderController
+OrderController --> OrderService
+OrderService --> OrderRepository
+OrderRepository --> PostgreSQL
+
+OrderService -->|publish OrderCreatedEvent| EventPublisher
+EventPublisher --> RabbitMQ
+
+RabbitMQ -->|future consumers| InventoryService
+RabbitMQ -->|future consumers| NotificationService
+RabbitMQ -->|future consumers| PaymentService
+```
+
+```mermaid
+sequenceDiagram
+Client->>OrderController: POST /orders
+OrderController->>OrderService: createOrder()
+OrderService->>PostgreSQL: save(order)
+OrderService->>RabbitMQ: publish OrderCreatedEvent
+RabbitMQ-->>InventoryService: consume
+RabbitMQ-->>NotificationService: consume
+RabbitMQ-->>PaymentService: consume
+```
+When an order is created, the service emits a domain event (`OrderCreatedEvent`) to RabbitMQ.
+
+This allows other services to react asynchronously without tightly coupling them to the Order service.
+
+Examples of potential consumers:
+
+- Inventory service reserving stock
+- Payment service initiating transactions
+- Notification service sending confirmations
+
+This pattern enables scalable and loosely coupled system design.
+
+---
+
+## Event Contract: OrderCreatedEvent
+
+The Order service publishes an `OrderCreatedEvent` whenever a new order is persisted.
+
+This event represents a business fact that other services may consume.
+
+```json
+{
+  "eventId": "uuid",
+  "occurredAt": "2026-03-04T12:00:00Z",
+  "orderId": 1,
+  "customerId": "cust-1",
+  "productId": 101,
+  "quantity": 2,
+  "status": "PENDING"
+}
+```
+
+Fields:
+
+- **eventId** — unique identifier for the event
+- **occurredAt** — timestamp of event creation
+- **orderId** — identifier of the order
+- **customerId** — customer placing the order
+- **productId** — ordered product
+- **quantity** — amount ordered
+- **status** — order status at creation
+
+---
+
+## Messaging Infrastructure
+
+RabbitMQ is used as the messaging broker for event delivery.
+
+Messaging components include:
+
+- `RabbitMqConfig` — exchange, queue, and binding configuration
+- `EventPublisher` — abstraction for publishing events
+- `RabbitMqEventPublisher` — RabbitMQ implementation
+- `OrderCreatedEvent` — domain event payload
+
+This abstraction allows the messaging layer to evolve independently of the business logic.
+
+---
+
+## Reliability Considerations
+
+The current implementation focuses on demonstrating event publication through RabbitMQ.
+
+Future iterations may introduce additional reliability mechanisms such as:
+
+- **Outbox pattern** for transactional event publishing
+- **Dead-letter queues (DLQ)** for failed message handling
+- **Retry policies** for transient delivery failures
+- **Idempotent event consumers** to ensure safe reprocessing
+
+These patterns are commonly used in production distributed systems to guarantee message delivery and processing correctness.
 
 ---
 
@@ -125,7 +249,11 @@ All endpoints are versioned:
 Request:
 
 ```json
-{ "customerId": "c1", "productId": 101, "quantity": 2 }
+{ 
+  "customerId": "c1",
+  "productId": 101, 
+  "quantity": 2
+}
 ```
 
 ---
@@ -204,7 +332,7 @@ Release discipline:
 - Version bump before tagging
 - Tags aligned with pom version
 
-Latest release: v0.4.0
+Latest release: v0.8.0
 
 ---
 
@@ -221,18 +349,20 @@ Latest release: v0.4.0
 
 ## Roadmap
 
-Upcoming milestone:
+Upcoming milestones:
 
-- JaCoCo coverage enforcement (v0.5.0)
-- Coverage threshold in CI
-- Coverage badge in README
+- Event consumers for OrderCreatedEvent
+- Inventory service prototype
+- Dead-letter queue handling
+- Message retry strategy
+- Idempotency protection for event processing
 
 Future direction:
 
-- RabbitMQ integration (OrderCreated event)
-- Domain events pattern
-- Multi-service orchestration
-- Reliability patterns (idempotency, outbox)
+- Multi-service architecture
+- Domain event orchestration
+- Outbox pattern for guaranteed delivery
+- Observability improvements (metrics + tracing)
 
 ---
 
@@ -246,5 +376,5 @@ OrderFlow demonstrates:
 - Reproducible runtime
 - Production-ready structure
 
-It is built to reflect how real backend systems evolve ---
-incrementally, versioned, and test-driven.
+It is built to reflect how real backend systems evolve
+incrementally through versioned, test-driven milestones.
