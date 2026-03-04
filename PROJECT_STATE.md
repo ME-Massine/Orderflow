@@ -2,61 +2,53 @@
 
 Project: OrderFlow  
 Type: Systems-focused backend engineering project  
-Primary Stack: Spring Boot 3, PostgreSQL, JPA, Actuator, OpenAPI  
-Language: Java 17
+Primary Stack: `Spring Boot 3`, `PostgreSQL`, `JPA`, `Actuator`, `OpenAPI`  
+Language: `Java 17`
 
-Repository layout: mono-repo (`services/order-service`)
+Repository layout: `mono-repo` (`services/order-service`)
 
 ---
 
 # 1. Project Vision
 
-OrderFlow is a production-oriented backend service designed to demonstrate:
+OrderFlow is a production-oriented backend system built to demonstrate:
 
 - Clean layered architecture
-- REST API best practices and contract stability
+- Versioned REST APIs with stable contracts
 - Validation and structured error handling
-- Transaction management
-- Observability (Actuator + Metrics)
-- Versioned APIs
-- CI pipeline integration
-- Test isolation via profile-based configuration
-- Reproducible local environment via Docker
-- Measurable and enforced code quality
-
-This project reflects real-world backend engineering maturity and portfolio readiness.
+- Transaction management and disciplined service boundaries
+- Observability via `Actuator`
+- CI pipeline enforcement and reproducible builds
+- Test isolation using profile-based configuration
+- Dockerized runtime for local reproducibility
+- Portfolio-grade engineering maturity
 
 ---
 
 # 2. Current Milestone
 
-Milestone: API Contract Stabilization (v0.6.0)
+Milestone: OpenAPI Contract Specification (`v0.7.0`)
 
-Status: Stable, Versioned, Tested, Contract-hardened
+Status: Stable, Verified in Swagger UI, Tests Passing
 
 Scope of milestone (complete):
 
-- Standardized pagination response via `PageResponse<T>` envelope
-    - Prevents leaking Spring internal paging types to API consumers
-    - Provides stable pagination metadata: `content`, `page`, `size`, `totalElements`, `totalPages`
-- Refined error contract for stable client consumption
-    - Introduced `ApiError` DTO including request `path`
-    - Introduced `ValidationError` DTO including `fieldErrors` and request `path`
-    - Centralized error responses via `GlobalExceptionHandler`
-- Service contract improvement
-    - Added `listOrders(Pageable)` to align controller paging with Spring pageable binding
-- Test updates
-    - Updated `@WebMvcTest` assertions to validate the new pagination envelope and typed error responses
-    - All tests remain green with JaCoCo reporting
-
-Release tags:
-
-- `v0.1.0` Order Service MVP
-- `v0.2.0` Integration Testing Layer
-- `v0.3.0` Service Layer Unit Tests
-- `v0.4.0` Dockerized local run
-- `v0.5.0` Coverage enforcement + Codecov
-- `v0.6.0` API contract stabilization (pagination + typed errors)
+- OpenAPI contract made explicit at the endpoint level
+    - `@Operation` summaries and descriptions added
+    - Response codes and schemas documented per endpoint
+- Concrete pagination schema introduced for OpenAPI
+    - Added `OrderPageResponse` so Swagger shows `content: OrderResponse[]` and stable pagination fields
+    - List endpoint returns `OrderPageResponse` (not a generic wrapper type in the OpenAPI output)
+- Typed error contracts represented in docs
+    - `ApiError` for general errors
+    - `ValidationError` for validation failures with `fieldErrors`
+- Swagger UI version aligned with application version
+    - OpenAPI config and `application.yml` updated so Swagger displays the correct service version
+- Verification
+    - Swagger UI confirms:
+        - correct shapes for `OrderResponse`, `OrderPageResponse`, `ApiError`, `ValidationError`
+        - correct enum values for `OrderStatus`
+    - `mvn clean test` passes fully
 
 ---
 
@@ -67,7 +59,7 @@ Release tags:
 Status: Implemented
 
 ## ADR-002: DTO Isolation
-Entities are separated from API contract models.  
+Entities are not exposed directly through API contracts.  
 Status: Implemented
 
 ## ADR-003: API Versioning
@@ -82,205 +74,222 @@ Status: Implemented
 Consistent build tool versioning across environments.  
 Status: Implemented
 
-## ADR-006: OpenAPI Integration
-Status: Implemented and verified  
-Swagger UI: [http://localhost:8081/swagger-ui/index.html](http://localhost:8081/swagger-ui/index.html)  
-OpenAPI JSON: [http://localhost:8081/v3/api-docs](http://localhost:8081/v3/api-docs)
+## ADR-006: OpenAPI Integration and Verification
+Swagger UI and OpenAPI JSON available at runtime.  
+Status: Implemented and verified
 
 ## ADR-007: Structured Exception Handling
-Centralized error mapping with correct HTTP semantics.  
-Status: Implemented and stabilized (`v0.6.0` typed contracts)
+Centralized error mapping with stable DTOs and correct HTTP semantics.  
+Status: Implemented and stabilized
 
 ## ADR-008: Dockerized Local Environment
 Reproducible runtime via `Docker Compose`.  
-Status: Implemented (`v0.4.0`)
+Status: Implemented
 
 ## ADR-009: Coverage Enforcement Strategy
-Enforce coverage thresholds at build level using `JaCoCo` and fail CI if violated.  
-Status: Implemented (`v0.5.0`)
+`JaCoCo` threshold enforcement in CI.  
+Status: Implemented
 
 ## ADR-010: API Contract Stabilization
-Expose stable pagination and error response shapes independent from Spring internals.  
-Status: Implemented (`v0.6.0`)
+Stable pagination envelope and typed error contract.  
+Status: Implemented
+
+## ADR-011: OpenAPI Contract Specification
+OpenAPI made explicit and consumer-friendly with concrete schemas.  
+Status: Implemented (`v0.7.0`)
 
 ---
 
-# 4. Completed Components
+# 4. Implemented Components
 
 ## Core Architecture
-- Clean layered design
-- Separation of concerns enforced by package structure
+- Strict layered design
+- Clear package separation aligned with responsibilities
 
 ## Domain Layer
 - `Order` entity
 - `OrderStatus` enum
-- `@PrePersist` lifecycle defaults
+- Persistence defaults (lifecycle handling)
 
 ## Service Layer
 - Business logic encapsulated
 - Transaction boundaries defined (`@Transactional`)
 - Dirty checking update strategy
-- Pageable-based listing supported (`listOrders(Pageable)`)
+- Pageable-based listing supported
 
 ## Persistence Layer
 - Spring Data JPA repository (`OrderRepository`)
 
 ## Web Layer
-- Versioned REST endpoints (`/api/v1/orders`)
-- Validation integrated (`@Valid`)
-- Pagination supported and stabilized via `PageResponse<T>`
-- Typed error contracts returned from centralized handler
+- Versioned endpoints (`/api/v1/orders`)
+- Bean Validation integrated (`@Valid`)
+- Pagination exposed via stable response envelope (`OrderPageResponse`)
+- Typed error handling via centralized controller advice
 
 ## Observability
-- Actuator endpoints enabled
-- Health endpoint verified
+- Spring Boot Actuator enabled and verified
 
-## Testing Layers
+## OpenAPI / Swagger
+- Swagger UI and OpenAPI JSON exposed
+- Endpoint-level annotations include responses and schema contracts
+- Swagger UI shows correct API version
 
-### Web Layer Contract Tests
+---
+
+# 5. API Contract Summary
+
+Base path:
+- `/api/v1/orders`
+
+Endpoints:
+- `POST /api/v1/orders`
+    - `201`: `OrderResponse`
+    - `400`: `ValidationError`
+- `GET /api/v1/orders/{id}`
+    - `200`: `OrderResponse`
+    - `404`: `ApiError`
+- `GET /api/v1/orders?page=0&size=10`
+    - `200`: `OrderPageResponse`
+- `PATCH /api/v1/orders/{id}/status?status=CONFIRMED`
+    - `200`: `OrderResponse`
+    - `400`: `ApiError`
+    - `404`: `ApiError`
+
+Contracts:
+- `OrderPageResponse` fields:
+    - `content`, `page`, `size`, `totalElements`, `totalPages`
+- `ApiError` fields:
+    - `timestamp`, `status`, `error`, `message`, `path`
+- `ValidationError` fields:
+    - `timestamp`, `status`, `error`, `message`, `path`, `fieldErrors`
+
+---
+
+# 6. Testing Strategy
+
+Test layers:
+
+## Web Layer Contract Tests
 - `@WebMvcTest` + `MockMvc`
-- Validates controller contracts, pagination envelope, and error mapping
+- Validates status codes, JSON contract shape, validation errors, enum mismatch behavior
 
-### Repository Slice Tests
+## Repository Slice Tests
 - `@DataJpaTest`
 - H2 in-memory database
-- JPA mapping and lifecycle verification
+- Mapping and persistence verification
 
-### Service Unit Tests
-- Mockito-based pure unit tests
-- Business logic validation
+## Service Unit Tests
+- Mockito-based unit tests
 - NotFound scenarios
-- Dirty checking behavior validation
+- Behavior validation for listing and status updates
+
+Current status:
+- `mvn clean test` green
 
 ---
 
-# 5. Code Quality Infrastructure
+# 7. Code Quality and CI
 
 ## JaCoCo Coverage
-
 - Generates HTML report:
   `services/order-service/target/site/jacoco/index.html`
-- Generates XML report for CI + Codecov
-- Enforces coverage thresholds at build time
-- Fails build if thresholds not met
+- XML for CI and Codecov
+- Threshold enforcement enabled in CI
 
-Coverage thresholds:
-- Line coverage `>= 75%`
-- Branch coverage `>= 60%`
+## Codecov
+- Coverage uploaded through GitHub Actions
+- Badge integrated in README
 
-## Codecov Integration
+## CI Workflow
+- Build -> Test -> Coverage report -> Coverage enforcement -> Codecov upload
 
-- Coverage uploaded automatically via GitHub Actions
-- Coverage badge updates per commit
-- PR-level coverage visibility
-
-CI behavior:
-- Tests must pass
-- Coverage must meet thresholds
-- Coverage report uploaded as artifact
+Status: Operational
 
 ---
 
-# 6. Local Runtime
+# 8. Local Runtime
 
-Run via Docker:
+Docker run:
 ```bash
 docker compose up --build
 ```
 
-Base URL:
+Access:
 
-[http://localhost:8081](http://localhost:8081)
-(no root "/" mapping; API endpoints only)
+Swagger UI: [http://localhost:8081/swagger-ui/index.html](http://localhost:8081/swagger-ui/index.html)
 
-API documentation:
+OpenAPI JSON: [http://localhost:8081/v3/api-docs](http://localhost:8081/v3/api-docs)
 
-[http://localhost:8081/swagger-ui/index.html](http://localhost:8081/swagger-ui/index.html)
+Health: [http://localhost:8081/actuator/health](http://localhost:8081/actuator/health)
 
-[http://localhost:8081/v3/api-docs](http://localhost:8081/v3/api-docs)
+Note:
 
-Observability:
-
-[http://localhost:8081/actuator/health](http://localhost:8081/actuator/health)
-
-[http://localhost:8081/actuator/metrics](http://localhost:8081/actuator/metrics)
-
-Docker provisions PostgreSQL automatically.
+Root `/` is not mapped; endpoints are API and docs focused.
 
 ---
 
-# 7. CI Pipeline
+# 9. Versioning and Releases
 
-GitHub Actions workflow:
-
-- Build
-- Test
-- JaCoCo coverage generation
-- Coverage threshold enforcement
-- Codecov upload
-- Coverage artifact upload
-
-Status: Fully operational
-
----
-
-# 8. Versioning Discipline
-
-Current version: `0.6.0`
-Current tag: `v0.6.0`
+Current target release: `v0.7.0`
+Current code state: OpenAPI contracts documented and verified
 
 Release rule:
-1. Implement feature
-2. Bump version
+
+1. Implement changes
+2. Run tests
 3. Commit
 4. Tag
-5. Push
+5. Push tag
 6. Publish GitHub Release
 
 Documentation-only changes do not require new version tags (unless they affect the release narrative).
 
 ---
 
-# 9. Pending Tasks
+# 10. Planned Next Milestone
 
-## High Priority
-- Add README architecture diagram
-- Add explicit OpenAPI annotations for standardized response models (optional polish)
-- Add a compact API contract section in README showing `PageResponse<T>` and `ApiError` schemas (portfolio polish)
+Milestone: Event-Driven Foundations with `RabbitMQ` (`v0.8.0`)
 
-## Medium Priority
-- Structured request logging with correlation ID
-- Prometheus metrics export
-- RabbitMQ event publishing (`OrderCreatedEvent`) and clean ADR for messaging
+Goal:
 
-## Long-Term
-- Introduce second service (product-service)
-- Inter-service communication patterns
-- Reliability patterns (Outbox, idempotency)
+Introduce event contracts and a messaging boundary without breaking layered architecture
 
----
+Planned package layout:
 
-# 10. Known Issues
+- `messaging/config` for `RabbitMQ` wiring
+- `messaging/event` for event contracts (immutable DTOs)
+- `messaging/publisher` for publish abstraction and `RabbitMQ` adapter
 
-1. `@MockBean` deprecation warning (Spring Boot 3.5.x) in tests
-2. `RabbitMQ` dependency present but not yet used (planned milestone)
-3. Ensure README version badge is not stale after releases
+Initial event:
+
+`OrderCreatedEvent` published after successful order creation
+
+Notes for production-grade follow-ups:
+
+- Outbox pattern for reliable publishing
+- Idempotent consumers for safe duplicate delivery handling
 
 ---
 
-# 11. Current Stability Assessment
+# 11. Known Issues / Observations
+
+1. `@MockBean` deprecation warning under `Spring Boot 3.5.x` during tests (build still succeeds)
+2. Ensure README version badge matches latest tag after tagging and releasing
+
+---
+
+# 12. Current Stability Assessment
 
 Build: Passing
-Tests: Web + Repository + Service implemented and passing
-Coverage: Enforced (`>=75%` line, `>=60%` branch)
-CI: Fully automated
-Coverage Badge: Live via Codecov
-Docker Runtime: Functional
-API Contract: Stabilized (pagination envelope + typed error contracts)
-Architecture: Clean, extensible, professionally structured
+Tests: Passing
+Coverage: Enforced
+CI: Operational
+Docker runtime: Verified
+OpenAPI contract: Explicit, stable, and verified in Swagger UI
+Architecture: Clean and extensible
 
 Project maturity level:
-Professional backend service with enforced quality baseline and stable external API contracts
+Portfolio-grade backend service with stable API contracts and enforced quality gates.
 
 ---
 
