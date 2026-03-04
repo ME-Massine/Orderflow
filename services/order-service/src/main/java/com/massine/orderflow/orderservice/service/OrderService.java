@@ -13,11 +13,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
 @Service
 @RequiredArgsConstructor
 public class OrderService {
 
     private final OrderRepository repo;
+    private final com.massine.orderflow.orderservice.messaging.publisher.EventPublisher eventPublisher;
 
     @Transactional
     public OrderResponse create(CreateOrderRequest req) {
@@ -28,6 +30,18 @@ public class OrderService {
                 .build();
 
         Order saved = repo.save(order);
+
+        // Publish domain event (v0.8.0 foundation)
+        eventPublisher.publishOrderCreated(
+                com.massine.orderflow.orderservice.messaging.event.OrderCreatedEvent.of(
+                        saved.getId(),
+                        saved.getCustomerId(),
+                        saved.getProductId(),
+                        saved.getQuantity(),
+                        saved.getStatus()
+                )
+        );
+
         return toResponse(saved);
     }
 

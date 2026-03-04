@@ -5,11 +5,15 @@ import com.massine.orderflow.orderservice.dto.OrderResponse;
 import com.massine.orderflow.orderservice.entity.Order;
 import com.massine.orderflow.orderservice.entity.OrderStatus;
 import com.massine.orderflow.orderservice.exception.NotFoundException;
+import com.massine.orderflow.orderservice.messaging.event.OrderCreatedEvent;
+import com.massine.orderflow.orderservice.messaging.publisher.EventPublisher;
 import com.massine.orderflow.orderservice.repository.OrderRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.*;
 
 import java.time.Instant;
@@ -19,19 +23,20 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 class OrderServiceUnitTest {
 
+    @Mock
     private OrderRepository repo;
+
+    @Mock
+    private EventPublisher eventPublisher;
+
+    @InjectMocks
     private OrderService service;
 
-    @BeforeEach
-    void setUp() {
-        repo = Mockito.mock(OrderRepository.class);
-        service = new OrderService(repo);
-    }
-
     @Test
-    void create_shouldPersistAndReturnResponse() {
+    void create_shouldPersistReturnResponse_andPublishOrderCreatedEvent() {
         // Arrange
         CreateOrderRequest req = new CreateOrderRequest();
         req.setCustomerId("cust-1");
@@ -61,10 +66,10 @@ class OrderServiceUnitTest {
         assertThat(resp.getCreatedAt()).isEqualTo(Instant.parse("2026-02-28T00:00:00Z"));
 
         // Assert what was saved
-        ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
-        verify(repo).save(captor.capture());
+        ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+        verify(repo).save(orderCaptor.capture());
 
-        Order toSave = captor.getValue();
+        Order toSave = orderCaptor.getValue();
         assertThat(toSave.getId()).isNull();
         assertThat(toSave.getCustomerId()).isEqualTo("cust-1");
         assertThat(toSave.getProductId()).isEqualTo(10L);
@@ -73,6 +78,21 @@ class OrderServiceUnitTest {
         // Service does not set status/createdAt explicitly; entity does it on persist
         assertThat(toSave.getStatus()).isNull();
         assertThat(toSave.getCreatedAt()).isNull();
+
+        // Assert event published
+        ArgumentCaptor<OrderCreatedEvent> eventCaptor = ArgumentCaptor.forClass(OrderCreatedEvent.class);
+        verify(eventPublisher).publishOrderCreated(eventCaptor.capture());
+
+        OrderCreatedEvent evt = eventCaptor.getValue();
+        assertThat(evt.eventId()).isNotNull();
+        assertThat(evt.occurredAt()).isNotNull();
+        assertThat(evt.orderId()).isEqualTo(1L);
+        assertThat(evt.customerId()).isEqualTo("cust-1");
+        assertThat(evt.productId()).isEqualTo(10L);
+        assertThat(evt.quantity()).isEqualTo(2);
+        assertThat(evt.status()).isEqualTo(OrderStatus.PENDING);
+
+        verifyNoMoreInteractions(repo, eventPublisher);
     }
 
     @Test
@@ -95,6 +115,7 @@ class OrderServiceUnitTest {
         assertThat(resp.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
 
         verify(repo).findById(5L);
+        verifyNoInteractions(eventPublisher);
         verifyNoMoreInteractions(repo);
     }
 
@@ -107,6 +128,7 @@ class OrderServiceUnitTest {
                 .hasMessageContaining("Order not found: 404");
 
         verify(repo).findById(404L);
+        verifyNoInteractions(eventPublisher);
         verifyNoMoreInteractions(repo);
     }
 
@@ -128,18 +150,17 @@ class OrderServiceUnitTest {
 
         Page<OrderResponse> respPage = service.list(0, 2);
 
-        // verify pageable exactly
         verify(repo).findAll(pageableCaptor.capture());
         Pageable used = pageableCaptor.getValue();
         assertThat(used.getPageNumber()).isEqualTo(0);
         assertThat(used.getPageSize()).isEqualTo(2);
 
-        // verify mapping
         assertThat(respPage.getTotalElements()).isEqualTo(2);
         assertThat(respPage.getContent()).hasSize(2);
         assertThat(respPage.getContent().get(0).getId()).isEqualTo(2L);
         assertThat(respPage.getContent().get(1).getStatus()).isEqualTo(OrderStatus.CANCELLED);
 
+        verifyNoInteractions(eventPublisher);
         verifyNoMoreInteractions(repo);
     }
 
@@ -158,15 +179,13 @@ class OrderServiceUnitTest {
 
         OrderResponse resp = service.updateStatus(7L, OrderStatus.CONFIRMED);
 
-        // Response mapped
         assertThat(resp.getId()).isEqualTo(7L);
         assertThat(resp.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
-
-        // Entity mutated (dirty checking style)
         assertThat(existing.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
 
         verify(repo).findById(7L);
         verify(repo, never()).save(any());
+        verifyNoInteractions(eventPublisher);
         verifyNoMoreInteractions(repo);
     }
 
@@ -180,6 +199,7 @@ class OrderServiceUnitTest {
 
         verify(repo).findById(99L);
         verify(repo, never()).save(any());
+        verifyNoInteractions(eventPublisher);
         verifyNoMoreInteractions(repo);
     }
 }

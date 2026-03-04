@@ -5,6 +5,11 @@ spring:
   application:
     name: order-service
     version: ${APP_VERSION:0.6.0}
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
 
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/orderdb}
@@ -24,3 +29,9 @@ management:
   health:
     rabbit:
       enabled: false
+
+orderflow:
+  messaging:
+    exchange: orderflow.order.events
+    orderCreatedRoutingKey: order.created
+    orderCreatedQueue: orderflow.order.created
