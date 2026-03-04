@@ -2,7 +2,7 @@
 
 Project: OrderFlow  
 Type: Systems-focused backend engineering project  
-Primary Stack: `Spring Boot 3`, `PostgreSQL`, `JPA`, `Actuator`, `OpenAPI`  
+Primary Stack: `Spring Boot 3`, `PostgreSQL`, `JPA`, `Actuator`, `OpenAPI`, `RabbitMQ` (AMQP)  
 Language: `Java 17`
 
 Repository layout: `mono-repo` (`services/order-service`)
@@ -13,7 +13,7 @@ Repository layout: `mono-repo` (`services/order-service`)
 
 OrderFlow is a production-oriented backend system built to demonstrate:
 
-- Clean layered architecture
+- Clean layered architecture (`controller` -> `service` -> `repository` -> `persistence`)
 - Versioned REST APIs with stable contracts
 - Validation and structured error handling
 - Transaction management and disciplined service boundaries
@@ -21,34 +21,35 @@ OrderFlow is a production-oriented backend system built to demonstrate:
 - CI pipeline enforcement and reproducible builds
 - Test isolation using profile-based configuration
 - Dockerized runtime for local reproducibility
+- Event-driven foundations via messaging, without breaking layered architecture
 - Portfolio-grade engineering maturity
 
 ---
 
 # 2. Current Milestone
 
-Milestone: OpenAPI Contract Specification (`v0.7.0`)
+Milestone: Event-Driven Foundations with `RabbitMQ` (`v0.8.0`)
 
-Status: Stable, Verified in Swagger UI, Tests Passing
+Status: Implemented, Tests Passing, Ready to Tag and Release
 
 Scope of milestone (complete):
 
-- OpenAPI contract made explicit at the endpoint level
-    - `@Operation` summaries and descriptions added
-    - Response codes and schemas documented per endpoint
-- Concrete pagination schema introduced for OpenAPI
-    - Added `OrderPageResponse` so Swagger shows `content: OrderResponse[]` and stable pagination fields
-    - List endpoint returns `OrderPageResponse` (not a generic wrapper type in the OpenAPI output)
-- Typed error contracts represented in docs
-    - `ApiError` for general errors
-    - `ValidationError` for validation failures with `fieldErrors`
-- Swagger UI version aligned with application version
-    - OpenAPI config and `application.yml` updated so Swagger displays the correct service version
+- Messaging boundary introduced (no coupling to `RabbitMQ` in domain logic)
+    - Added `EventPublisher` abstraction
+    - `RabbitMqEventPublisher` implements `EventPublisher` using `Spring AMQP`
+- Event contract introduced
+    - `OrderCreatedEvent` published after successful order creation
+- `RabbitMQ` wiring added
+    - `RabbitMqConfig` defines exchange / routing / queue binding (project-level messaging topology)
+- Service integrates publishing
+    - `OrderService` publishes `OrderCreatedEvent` after persistence
+- Documentation upgraded
+    - README now documents layered architecture and event-driven architecture
+    - Includes both flowchart and sequence diagram for event flow
+    - Event contract schema documented
 - Verification
-    - Swagger UI confirms:
-        - correct shapes for `OrderResponse`, `OrderPageResponse`, `ApiError`, `ValidationError`
-        - correct enum values for `OrderStatus`
     - `mvn clean test` passes fully
+    - `WebMvcTest`, `DataJpaTest`, and service unit tests remain green
 
 ---
 
@@ -96,7 +97,11 @@ Status: Implemented
 
 ## ADR-011: OpenAPI Contract Specification
 OpenAPI made explicit and consumer-friendly with concrete schemas.  
-Status: Implemented (`v0.7.0`)
+Status: Implemented
+
+## ADR-012: Messaging Boundary via Port-Adapter
+Publish events behind an abstraction, keep `RabbitMQ` as an adapter.  
+Status: Implemented (`v0.8.0`)
 
 ---
 
@@ -115,7 +120,6 @@ Status: Implemented (`v0.7.0`)
 - Business logic encapsulated
 - Transaction boundaries defined (`@Transactional`)
 - Dirty checking update strategy
-- Pageable-based listing supported
 
 ## Persistence Layer
 - Spring Data JPA repository (`OrderRepository`)
@@ -123,8 +127,17 @@ Status: Implemented (`v0.7.0`)
 ## Web Layer
 - Versioned endpoints (`/api/v1/orders`)
 - Bean Validation integrated (`@Valid`)
-- Pagination exposed via stable response envelope (`OrderPageResponse`)
+- Pagination exposed via stable response envelope (`PageResponse` / `OrderPageResponse`)
 - Typed error handling via centralized controller advice
+
+## Messaging Layer (`v0.8.0`)
+- `messaging/config`
+    - `RabbitMqConfig` for exchange / queue / binding
+- `messaging/event`
+    - `OrderCreatedEvent` immutable event DTO
+- `messaging/publisher`
+    - `EventPublisher` interface
+    - `RabbitMqEventPublisher` implementation
 
 ## Observability
 - Spring Boot Actuator enabled and verified
@@ -149,7 +162,7 @@ Endpoints:
     - `200`: `OrderResponse`
     - `404`: `ApiError`
 - `GET /api/v1/orders?page=0&size=10`
-    - `200`: `OrderPageResponse`
+    - `200`: `OrderPageResponse` (concrete schema for OpenAPI)
 - `PATCH /api/v1/orders/{id}/status?status=CONFIRMED`
     - `200`: `OrderResponse`
     - `400`: `ApiError`
@@ -182,6 +195,7 @@ Test layers:
 - Mockito-based unit tests
 - NotFound scenarios
 - Behavior validation for listing and status updates
+- `v0.8.0` update: ensure event publisher is invoked for create flow (where applicable)
 
 Current status:
 - `mvn clean test` green
@@ -191,7 +205,7 @@ Current status:
 # 7. Code Quality and CI
 
 ## JaCoCo Coverage
-- Generates HTML report:
+- HTML report:
   `services/order-service/target/site/jacoco/index.html`
 - XML for CI and Codecov
 - Threshold enforcement enabled in CI
@@ -222,16 +236,18 @@ OpenAPI JSON: [http://localhost:8081/v3/api-docs](http://localhost:8081/v3/api-d
 
 Health: [http://localhost:8081/actuator/health](http://localhost:8081/actuator/health)
 
-Note:
+Notes:
 
 Root `/` is not mapped; endpoints are API and docs focused.
+
+`RabbitMQ` runtime requires broker availability (Docker compose or local broker, depending on setup).
 
 ---
 
 # 9. Versioning and Releases
 
-Current target release: `v0.7.0`
-Current code state: OpenAPI contracts documented and verified
+Current target release: `v0.8.0`
+Current code state: `RabbitMQ` event publishing introduced + documentation updated
 
 Release rule:
 
@@ -242,39 +258,37 @@ Release rule:
 5. Push tag
 6. Publish GitHub Release
 
-Documentation-only changes do not require new version tags (unless they affect the release narrative).
+Release tooling note:
+
+`GitHub CLI` (`gh`) is not installed on current environment, so release creation must be done either:
+
+- via GitHub web UI, or
+- after installing `GitHub CLI` on the machine.
 
 ---
 
 # 10. Planned Next Milestone
 
-Milestone: Event-Driven Foundations with `RabbitMQ` (`v0.8.0`)
+Milestone: Event Consumption and Reliability Hooks (`v0.9.0`)
 
 Goal:
+Move from "publish only" to "publish + consume" and introduce reliability patterns.
 
-Introduce event contracts and a messaging boundary without breaking layered architecture
+Planned scope:
 
-Planned package layout:
-
-- `messaging/config` for `RabbitMQ` wiring
-- `messaging/event` for event contracts (immutable DTOs)
-- `messaging/publisher` for publish abstraction and `RabbitMQ` adapter
-
-Initial event:
-
-`OrderCreatedEvent` published after successful order creation
-
-Notes for production-grade follow-ups:
-
-- Outbox pattern for reliable publishing
-- Idempotent consumers for safe duplicate delivery handling
+- Add a consumer example (`@RabbitListener`) to prove end-to-end event-driven flow
+- Introduce dead-letter queue handling (DLQ) and retry strategy (design-level or basic config)
+- Add idempotency guardrails for consumer side (design notes or minimal implementation)
+- Document delivery semantics and failure modes
 
 ---
 
 # 11. Known Issues / Observations
 
-1. `@MockBean` deprecation warning under `Spring Boot 3.5.x` during tests (build still succeeds)
+1. `@MockBean` deprecation warnings under `Spring Boot 3.5.x` during tests (build still succeeds)
 2. Ensure README version badge matches latest tag after tagging and releasing
+3. `GitHub CLI` not available (`gh release create` fails) - release must be created via UI or install `gh`
+4. Maven warning previously observed: duplicate `spring-boot-starter-amqp` dependency. Ensure `pom.xml` contains a single declaration.
 
 ---
 
@@ -286,10 +300,10 @@ Coverage: Enforced
 CI: Operational
 Docker runtime: Verified
 OpenAPI contract: Explicit, stable, and verified in Swagger UI
-Architecture: Clean and extensible
+Architecture: Clean, extensible, event-ready
 
 Project maturity level:
-Portfolio-grade backend service with stable API contracts and enforced quality gates.
+Portfolio-grade backend service with stable API contracts, enforced quality gates, and event-driven foundations via `RabbitMQ`.
 
 ---
 
