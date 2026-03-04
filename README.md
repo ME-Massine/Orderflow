@@ -1,13 +1,68 @@
 # OrderFlow
 ![Build](https://github.com/ME-Massine/Orderflow/actions/workflows/ci.yml/badge.svg)
 [![codecov](https://codecov.io/gh/ME-Massine/Orderflow/branch/main/graph/badge.svg?token=WXY4AORGMQ)](https://codecov.io/gh/ME-Massine/Orderflow)
-![Version](https://img.shields.io/badge/version-v0.4.0-blue)
+![Version](https://img.shields.io/badge/version-v0.6.0-blue)
 ![Java](https://img.shields.io/badge/Java-17-orange)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-brightgreen)
 ![Docker](https://img.shields.io/badge/Docker-Enabled-blue)
 ![GitHub release](https://img.shields.io/github/v/release/ME-Massine/Orderflow)
 
 OrderFlow is a production-oriented backend system built to demonstrate clean architecture, disciplined engineering practices, and portfolio-grade backend maturity using Spring Boot and PostgreSQL.
+
+---
+
+## System Overview
+
+OrderFlow is a production-oriented backend service designed to demonstrate real-world backend engineering practices:
+
+• Strict layered architecture  
+• Versioned REST API contracts  
+• Structured error handling  
+• Multi-layer testing strategy  
+• CI-driven quality enforcement  
+• Containerized runtime environment
+
+---
+
+## Architecture
+
+```mermaid
+flowchart TD
+
+Client[API Client]
+
+Client --> Controller[OrderController\n/api/v1/orders]
+
+Controller --> Service[OrderService]
+
+Service --> Repository[OrderRepository]
+
+Repository --> JPA["JPA / Hibernate"]
+
+JPA --> PostgreSQL[(PostgreSQL)]
+
+Controller --> Validation[Bean Validation\n@Valid]
+
+Controller --> Exceptions[GlobalExceptionHandler]
+
+Exceptions --> ApiError[ApiError]
+
+Exceptions --> ValidationError[ValidationError]
+
+Service --> Tx[Transactional Boundary]
+
+Controller --> OpenAPI[Swagger / OpenAPI]
+
+subgraph Testing
+WebMvc[@WebMvcTest]
+ServiceTests[Service Unit Tests]
+JpaTests[@DataJpaTest]
+Coverage[JaCoCo Coverage]
+WebMvc --> Coverage
+ServiceTests --> Coverage
+JpaTests --> Coverage
+end
+```
 
 ---
 
