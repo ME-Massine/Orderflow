@@ -1,7 +1,7 @@
 # OrderFlow
 ![Build](https://github.com/ME-Massine/Orderflow/actions/workflows/ci.yml/badge.svg)
 [![codecov](https://codecov.io/gh/ME-Massine/Orderflow/branch/main/graph/badge.svg?token=WXY4AORGMQ)](https://codecov.io/gh/ME-Massine/Orderflow)
-![Version](https://img.shields.io/badge/version-v0.7.0-blue)
+![Version](https://img.shields.io/badge/version-v0.8.0-blue)
 ![Java](https://img.shields.io/badge/Java-17-orange)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-brightgreen)
 ![Docker](https://img.shields.io/badge/Docker-Enabled-blue)
