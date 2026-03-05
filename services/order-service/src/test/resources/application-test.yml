@@ -6,6 +6,10 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
+  rabbitmq:
+    listener:
+      simple:
+        auto-startup: false
 
 # You have spring-boot-starter-amqp, so disable rabbit things during tests
 management:

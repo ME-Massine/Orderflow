@@ -35,3 +35,11 @@ orderflow:
     exchange: orderflow.order.events
     orderCreatedRoutingKey: order.created
     orderCreatedQueue: orderflow.order.created
+  rabbitmq:
+    exchange: orderflow.events
+    dlx-exchange: orderflow.dlx
+    order-created:
+      routing-key: order.created
+      queue: order.created.q
+      dlq-routing-key: order.created.dlq
+      dlq: order.created.dlq
