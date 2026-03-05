@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.massine.orderflow</groupId>
     <artifactId>order-service</artifactId>
-    <version>0.8.0</version>
+    <version>0.9.0</version>
     <name>order-service</name>
     <description>order-service</description>
     <url/>
