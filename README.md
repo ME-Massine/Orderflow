@@ -1,11 +1,10 @@
 # OrderFlow
 ![Build](https://github.com/ME-Massine/Orderflow/actions/workflows/ci.yml/badge.svg)
 [![codecov](https://codecov.io/gh/ME-Massine/Orderflow/branch/main/graph/badge.svg?token=WXY4AORGMQ)](https://codecov.io/gh/ME-Massine/Orderflow)
-![Version](https://img.shields.io/badge/version-v0.8.0-blue)
+![Version](https://img.shields.io/github/v/release/ME-Massine/Orderflow?display_name=tag&color=blue)
 ![Java](https://img.shields.io/badge/Java-17-orange)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-brightgreen)
 ![Docker](https://img.shields.io/badge/Docker-Enabled-blue)
-![GitHub release](https://img.shields.io/github/v/release/ME-Massine/Orderflow)
 
 OrderFlow is a production-oriented backend system built to demonstrate clean architecture, disciplined engineering practices, and portfolio-grade backend maturity using Spring Boot and PostgreSQL.
 
