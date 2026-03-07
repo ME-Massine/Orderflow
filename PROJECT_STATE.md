@@ -14,7 +14,7 @@ Repository layout: `mono-repo` (`services/order-service`)
 OrderFlow is a production-oriented backend system built to demonstrate:
 
 - Clean layered architecture (`controller` → `service` → `repository` → `persistence`)
-- Versioned REST APIs with stable contracts
+- Versioned `REST APIs` with stable contracts
 - Validation and structured error handling
 - Transaction management and disciplined service boundaries
 - Observability via `Actuator`
@@ -30,60 +30,84 @@ The project evolves through incremental versioned milestones, each introducing a
 
 # 2. Current Milestone
 
-Milestone: Event Consumption and Reliability Foundations (`v0.9.0`)
+Milestone: **DLQ Handling and Failure Observability (`v0.10.0`)**
 
-Status: Implemented, Tests Passing, Ready for Release Tag
+Status: Implemented, Tests Passing, Ready for Version Bump / Tag / Release
 
 Scope of milestone (complete):
 
-- Messaging Publisher (from `v0.8.0`)
-    - Messaging boundary introduced
-    - `EventPublisher` abstraction
-    - `RabbitMqEventPublisher` implementation
-    - `OrderCreatedEvent` event contract
-    - `RabbitMqConfig` messaging topology
-    - `OrderService` publishes event after successful order creation
-- Event Consumer
-    - Introduced `OrderCreatedEventConsumer`
-    - Uses `@RabbitListener` to consume events
-    - Demonstrates end-to-end event flow
-- Retry Strategy
-    - Implemented using `Spring AMQP RetryInterceptor`:
-        - Automatic retry for failed message processing
-        - Configurable exponential backoff
-        - Maximum retry attempts
-- Dead Letter Queue Strategy
-    - Failed events republished to `DLQ` exchange
-    - Messages routed to `order.created.dlq`
-- Idempotency Guard
-    - Consumer-side duplicate protection implemented via:
-        - `IdempotencyStore` abstraction
-        - `InMemoryIdempotencyStore` implementation
-    - Prevents duplicate processing caused by at-least-once delivery semantics.
-- Event Handler Abstraction
-    - Consumer logic separated via:
-        - `OrderCreatedEventHandler`
-        - `LoggingOrderCreatedEventHandler`
-    - This keeps the consumer thin and allows future service integrations.
-- Documentation Updates
-    - README updated with:
-        - Event-driven architecture diagram
-        - Sequence diagram for event lifecycle
-        - Messaging infrastructure description
-        - Event contract schema
-- Verification
-    - All tests pass:
-      ```bash
-      mvn clean test
-      ```
-    - Test results:
-      ```
-      Tests run: 21
-      Failures: 0
-      Errors: 0
-      Skipped: 0
-      ```
-    - `JaCoCo` coverage report generated successfully.
+## From previous milestones retained
+
+### Messaging Publisher Foundations (`v0.8.0`)
+- `EventPublisher` abstraction introduced
+- `RabbitMqEventPublisher` implementation added
+- `OrderCreatedEvent` event contract added
+- `RabbitMqConfig` messaging topology introduced
+- `OrderService` publishes `OrderCreatedEvent` after successful order creation
+
+### Event Consumption and Reliability Foundations (`v0.9.0`)
+- `OrderCreatedEventConsumer` introduced
+- `@RabbitListener` consumer implemented
+- `Spring AMQP` retry interceptor added
+- `DLQ` republish strategy configured
+- `IdempotencyStore` abstraction added
+- `InMemoryIdempotencyStore` implementation added
+- `OrderCreatedEventHandler` abstraction introduced
+- `LoggingOrderCreatedEventHandler` added
+- Consumer unit tests added
+
+## New in `v0.10.0`
+
+### DLQ Consumer
+- Added `OrderCreatedDlqConsumer`
+- Consumes dead-lettered messages from `order.created.dlq`
+- Handles failed message visibility explicitly rather than leaving failures opaque
+
+### Failure Observability
+- Added `MessagingMetrics`
+- Tracks:
+    - consumed events
+    - duplicate events
+    - failed events
+    - `DLQ` events
+- Uses `Micrometer` counters compatible with `Actuator` metrics exposure
+
+### Improved Consumer Instrumentation
+- `OrderCreatedEventConsumer` now records:
+    - successful consumptions
+    - duplicates skipped by idempotency guard
+    - failed payload processing
+
+### DLQ Diagnostics
+- `DLQ` consumer logs:
+    - queue name
+    - original exchange
+    - original routing key
+    - exception message
+    - exception stacktrace
+    - raw payload
+
+### Retry Configuration Refinement
+- `RabbitListenerRetryConfig` updated to republish failed messages with additional diagnostic headers:
+    - `x-original-exchange`
+    - `x-original-routingKey`
+
+### Test Runtime Improvement
+- `application-test.yml` disables `Rabbit` listener auto-start during tests to avoid unnecessary broker connection attempts
+
+### Verification
+- All tests pass:
+  ```bash
+  mvn clean test
+  ```
+- Current green test count:
+  ```bash
+  Tests run: 21
+  Failures: 0
+  Errors: 0
+  Skipped: 0
+  ```
+- `JaCoCo` report generated successfully
 
 ---
 
@@ -105,7 +129,7 @@ Status: Implemented
 ## ADR-004: Profile-Based Test Isolation
 Profiles:
 - `test` → `H2`
-- `dev`/`docker` → `PostgreSQL`  
+- `dev` / `docker` → `PostgreSQL`  
   Status: Implemented
 
 ## ADR-005: Maven Wrapper Usage
@@ -150,46 +174,56 @@ Domain logic publishes events through abstraction.
 ## ADR-012: Consumer Idempotency Guard
 Consumers must tolerate duplicate message delivery.
 Strategy:
-- `IdempotencyStore`  
+- `IdempotencyStore` abstraction
+- in-memory implementation for current milestone  
   Status: Implemented (`v0.9.0`)
 
 ## ADR-013: Retry + DLQ Strategy
 Message processing failures handled using:
 - `Spring AMQP` retry interceptor
-- `DLQ` republish recoverer  
+- `RepublishMessageRecoverer`
+- dead-letter queue routing  
   Status: Implemented (`v0.9.0`)
+
+## ADR-014: Dedicated DLQ Processing
+Dead-lettered messages should be consumed explicitly for diagnostics and operational visibility rather than silently accumulating in queue storage.
+Status: Implemented (`v0.10.0`)
+
+## ADR-015: Messaging Metrics via Micrometer
+Messaging reliability should be observable through counters exposed via the application's metrics infrastructure.
+Status: Implemented (`v0.10.0`)
 
 ---
 
 # 4. Implemented Components
 
 ## Core Architecture
-- Strict layered architecture with responsibility separation.
+- Strict layered architecture with clear responsibility separation
 
 ## Domain Layer
 - `Order`
 - `OrderStatus`
 
 ## Service Layer
-- Encapsulated business logic with transactional boundaries.
+- Encapsulated business logic with transactional boundaries
 - Key behavior:
     - create order
     - update order status
     - list orders with pagination
-- Event publishing triggered on successful persistence.
+- Event publishing triggered after successful persistence
 
 ## Persistence Layer
 - Spring Data repository:
     - `OrderRepository`
 
 ## Web Layer
-- Versioned REST endpoints:
+- Versioned `REST` endpoints:
     - `/api/v1/orders`
 - Validation via:
     - `@Valid`
 - Pagination contract via:
     - `OrderPageResponse`
-- Centralized error handling.
+- Centralized error handling
 
 ## Messaging Layer
 
@@ -202,36 +236,57 @@ Message processing failures handled using:
 - `RabbitMqConfig`
 - `RabbitListenerRetryConfig`
 - Defines:
-    - Exchange
-    - Routing keys
-    - Queue
-    - Dead letter exchange
-    - Retry interceptor
+    - exchange
+    - routing keys
+    - queue
+    - dead-letter exchange
+    - dead-letter routing
+    - retry interceptor
+    - republish recoverer
 
 ### Consumer
 - `OrderCreatedEventConsumer`
 - Responsibilities:
     - consume events
-    - ensure idempotency
+    - validate payload shape
+    - enforce idempotency
     - delegate to handler
+    - emit messaging metrics
 
 ### Handler
 - `OrderCreatedEventHandler`
 - `LoggingOrderCreatedEventHandler`
 - Current behavior:
-    - Logs consumption of events.
-- Future behavior may integrate additional services.
+    - logs successful event handling
+- Future behavior:
+    - can be replaced or extended with inventory, payment, notification, or analytics handlers
 
 ### Idempotency
 - `IdempotencyStore`
 - `InMemoryIdempotencyStore`
 - Ensures duplicate events are ignored.
 
+### DLQ Processing
+- `OrderCreatedDlqConsumer`
+- Responsibilities:
+    - consume dead-lettered messages
+    - increment `DLQ` metric
+    - log failure context and payload for debugging
+
+### Messaging Observability
+- `MessagingMetrics`
+- Counters:
+    - `orderflow.messaging.events.consumed`
+    - `orderflow.messaging.events.duplicates`
+    - `orderflow.messaging.events.failed`
+    - `orderflow.messaging.events.dlq`
+
 ## Observability
-- Spring Boot Actuator endpoints enabled.
+- `Spring Boot Actuator` endpoints enabled
+- Messaging metrics integrated with `Micrometer`
 
 ## OpenAPI
-- Swagger UI verified and documented.
+- Swagger UI verified and documented
 
 ---
 
@@ -251,14 +306,23 @@ Returns:
 ### Get Order
 `GET /api/v1/orders/{id}`
 
+Returns:
+- `200` → `OrderResponse`
+- `404` → `ApiError`
+
 ### List Orders
 `GET /api/v1/orders?page=0&size=10`
 
 Returns:
-- `OrderPageResponse`
+- `200` → `OrderPageResponse`
 
 ### Update Order Status
 `PATCH /api/v1/orders/{id}/status`
+
+Returns:
+- `200` → `OrderResponse`
+- `400` → `ApiError`
+- `404` → `ApiError`
 
 Contracts:
 
@@ -285,11 +349,11 @@ Test layers:
 - Validates:
     - status codes
     - request validation
-    - JSON response contracts
+    - `JSON` response contracts
 
 ## Repository Tests
 - `@DataJpaTest`
-- Uses `H2` in-memory database.
+- Uses `H2` in-memory database
 - Validates:
     - entity mapping
     - persistence behavior
@@ -299,7 +363,8 @@ Test layers:
     - order creation
     - pagination
     - status updates
-    - NotFound scenarios
+    - `NotFound` scenarios
+    - event publication behavior from create flow
 
 ## Messaging Tests
 - Consumer tests verify:
@@ -307,25 +372,28 @@ Test layers:
     - duplicate event skipping
     - invalid payload rejection
 
-Test results:
+Current result:
 ```
 Tests run: 21
 Failures: 0
 Errors: 0
 ```
 
+Test profile note:
+- `Rabbit` listeners are disabled during test startup to avoid broker dependency for standard test execution
+
 ---
 
 # 7. Code Quality and CI
 
 ## JaCoCo
-- Coverage reports generated locally and in CI.
+- Coverage reports generated locally and in CI
 - Report path:
   `services/order-service/target/site/jacoco/index.html`
 
 ## Codecov
-- Coverage uploaded through GitHub Actions.
-- Badge included in README.
+- Coverage uploaded through `GitHub Actions`
+- Badge included in README
 
 ## CI Pipeline
 - Pipeline steps:
@@ -333,7 +401,7 @@ Errors: 0
     - test
     - coverage
     - coverage enforcement
-    - Codecov upload
+    - `Codecov` upload
 
 Status: Operational
 
@@ -356,52 +424,61 @@ Health endpoint: [http://localhost:8081/actuator/health](http://localhost:8081/a
 
 Notes:
 
-Root `/` is not mapped; endpoints are API and docs focused.
-
-`RabbitMQ` runtime requires broker availability (Docker compose or local broker, depending on setup).
+- Root `/` is not mapped; endpoints are API and docs focused
+- `RabbitMQ` runtime requires broker availability
+- Full messaging flow is most meaningful when `PostgreSQL` and `RabbitMQ` are both running
 
 ---
 
 # 9. Versioning and Releases
 
-Current release:
-- `v0.9.0`
+Current milestone target:
+- `v0.10.0`
+
+Current code state:
+- `v0.10.0` implementation complete
+- version bump / release closure pending unless already applied separately
 
 Release discipline:
-- commit → tests → tag → push → release
+- commit → tests → version bump → tag → push → release
 
-Version badge now automated via GitHub tag badge.
-
-Manual version badges removed from README.
+Version badge:
+- automated via `GitHub` dynamic badge
+- manual version badge removed from README
 
 ---
 
 # 10. Planned Next Milestone
 
-Milestone: `DLQ` Handling and Failure Observability (`v0.10.0`)
+Milestone: Transactional Delivery Hardening (`v1.0.0`)
 
 Goal:
-Strengthen reliability and operational visibility.
+Make event publication production-grade by addressing database/message consistency guarantees.
 
 Planned scope:
 
-- `DLQ` consumer implementation
-- Failure logging with metadata
-- Event failure observability
-- Message retry metrics
-- Operational debugging support
+- Outbox pattern
+    - persisted outbox event record
+    - outbox publisher job / relay
+    - design notes for exactly-once illusions vs at-least-once reality
+- stronger idempotency story beyond in-memory storage
 
 Architecture extension:
-- `publisher` → `RabbitMQ` → `consumer` → `retry` → `DLQ` → `DLQ` consumer
+- `service` → `database` transaction
+- persist order
+- persist outbox record
+- outbox publisher → `RabbitMQ`
+- `consumer` → `retry` → `DLQ` → `DLQ` consumer
 
 ---
 
 # 11. Known Issues / Observations
 
 1. `@MockBean` deprecation warnings in `Spring Boot 3.5.x` tests (non-breaking)
-2. `RabbitMQ` connection attempts appear in tests when broker is not running
-3. Test profile now disables `Rabbit` listener auto-start to avoid unnecessary broker connections
-4. Maven dependency duplication previously detected for `AMQP` dependency (resolved)
+2. Local runtime requires broker availability for full messaging behavior
+3. Current idempotency implementation is in-memory and therefore suitable for demonstration, not durable multi-instance production use
+4. `DLQ` processing currently logs and counts failed events but does not yet persist failure audit records
+5. `pom.xml` and release tags must be kept aligned during milestone closure
 
 ---
 
@@ -411,12 +488,12 @@ Build: Passing
 Tests: Passing
 Coverage: Enforced
 CI: Operational
-Docker runtime: Verified
+Docker runtime: Verified for core app
 OpenAPI contract: Stable
-Messaging: Publisher + Consumer + Retry + Idempotency implemented
+Messaging: Publisher + Consumer + Retry + `DLQ` + Idempotency + Metrics implemented
 
 Project maturity level:
-Production-grade backend service with:
+Production-oriented backend service with:
 - stable API contracts
 - enforced quality gates
 - event-driven messaging
