@@ -13,7 +13,7 @@ Repository layout: `mono-repo` (`services/order-service`)
 
 OrderFlow is a production-oriented backend system built to demonstrate:
 
-- Clean layered architecture (`controller` -> `service` -> `repository` -> `persistence`)
+- Clean layered architecture (`controller` → `service` → `repository` → `persistence`)
 - Versioned REST APIs with stable contracts
 - Validation and structured error handling
 - Transaction management and disciplined service boundaries
@@ -21,131 +21,217 @@ OrderFlow is a production-oriented backend system built to demonstrate:
 - CI pipeline enforcement and reproducible builds
 - Test isolation using profile-based configuration
 - Dockerized runtime for local reproducibility
-- Event-driven foundations via messaging, without breaking layered architecture
-- Portfolio-grade engineering maturity
+- Event-driven architecture patterns
+- Portfolio-grade backend engineering maturity
+
+The project evolves through incremental versioned milestones, each introducing a new real-world backend capability.
 
 ---
 
 # 2. Current Milestone
 
-Milestone: Event-Driven Foundations with `RabbitMQ` (`v0.8.0`)
+Milestone: Event Consumption and Reliability Foundations (`v0.9.0`)
 
-Status: Implemented, Tests Passing, Ready to Tag and Release
+Status: Implemented, Tests Passing, Ready for Release Tag
 
 Scope of milestone (complete):
 
-- Messaging boundary introduced (no coupling to `RabbitMQ` in domain logic)
-    - Added `EventPublisher` abstraction
-    - `RabbitMqEventPublisher` implements `EventPublisher` using `Spring AMQP`
-- Event contract introduced
-    - `OrderCreatedEvent` published after successful order creation
-- `RabbitMQ` wiring added
-    - `RabbitMqConfig` defines exchange / routing / queue binding (project-level messaging topology)
-- Service integrates publishing
-    - `OrderService` publishes `OrderCreatedEvent` after persistence
-- Documentation upgraded
-    - README now documents layered architecture and event-driven architecture
-    - Includes both flowchart and sequence diagram for event flow
-    - Event contract schema documented
+- Messaging Publisher (from `v0.8.0`)
+    - Messaging boundary introduced
+    - `EventPublisher` abstraction
+    - `RabbitMqEventPublisher` implementation
+    - `OrderCreatedEvent` event contract
+    - `RabbitMqConfig` messaging topology
+    - `OrderService` publishes event after successful order creation
+- Event Consumer
+    - Introduced `OrderCreatedEventConsumer`
+    - Uses `@RabbitListener` to consume events
+    - Demonstrates end-to-end event flow
+- Retry Strategy
+    - Implemented using `Spring AMQP RetryInterceptor`:
+        - Automatic retry for failed message processing
+        - Configurable exponential backoff
+        - Maximum retry attempts
+- Dead Letter Queue Strategy
+    - Failed events republished to `DLQ` exchange
+    - Messages routed to `order.created.dlq`
+- Idempotency Guard
+    - Consumer-side duplicate protection implemented via:
+        - `IdempotencyStore` abstraction
+        - `InMemoryIdempotencyStore` implementation
+    - Prevents duplicate processing caused by at-least-once delivery semantics.
+- Event Handler Abstraction
+    - Consumer logic separated via:
+        - `OrderCreatedEventHandler`
+        - `LoggingOrderCreatedEventHandler`
+    - This keeps the consumer thin and allows future service integrations.
+- Documentation Updates
+    - README updated with:
+        - Event-driven architecture diagram
+        - Sequence diagram for event lifecycle
+        - Messaging infrastructure description
+        - Event contract schema
 - Verification
-    - `mvn clean test` passes fully
-    - `WebMvcTest`, `DataJpaTest`, and service unit tests remain green
+    - All tests pass:
+      ```bash
+      mvn clean test
+      ```
+    - Test results:
+      ```
+      Tests run: 21
+      Failures: 0
+      Errors: 0
+      Skipped: 0
+      ```
+    - `JaCoCo` coverage report generated successfully.
 
 ---
 
 # 3. Architecture Decisions (ADR Style)
 
 ## ADR-001: Layered Architecture
-`Controller` -> `Service` -> `Repository` -> `JPA` -> `Database`  
+`Controller` → `Service` → `Repository` → `JPA` → `Database`  
 Status: Implemented
 
 ## ADR-002: DTO Isolation
-Entities are not exposed directly through API contracts.  
+Entities are never exposed directly through API contracts.  
 Status: Implemented
 
 ## ADR-003: API Versioning
-URL-based versioning `/api/v1/...`  
+URL versioning strategy:
+`/api/v1/...`  
 Status: Implemented
 
 ## ADR-004: Profile-Based Test Isolation
-H2 for tests, PostgreSQL for prod/docker.  
-Status: Implemented
+Profiles:
+- `test` → `H2`
+- `dev`/`docker` → `PostgreSQL`  
+  Status: Implemented
 
 ## ADR-005: Maven Wrapper Usage
-Consistent build tool versioning across environments.  
+Ensures consistent build environment.  
 Status: Implemented
 
-## ADR-006: OpenAPI Integration and Verification
-Swagger UI and OpenAPI JSON available at runtime.  
-Status: Implemented and verified
+## ADR-006: OpenAPI Contract Specification
+Swagger UI and OpenAPI JSON exposed and verified.  
+Status: Implemented
 
 ## ADR-007: Structured Exception Handling
-Centralized error mapping with stable DTOs and correct HTTP semantics.  
-Status: Implemented and stabilized
+Centralized error handling using:
+- `ApiError`
+- `ValidationError`
+- `GlobalExceptionHandler`  
+  Status: Implemented
 
-## ADR-008: Dockerized Local Environment
-Reproducible runtime via `Docker Compose`.  
+## ADR-008: Dockerized Runtime
+Local reproducibility via:
+```bash
+docker compose up --build
+```  
 Status: Implemented
 
-## ADR-009: Coverage Enforcement Strategy
-`JaCoCo` threshold enforcement in CI.  
+## ADR-009: Coverage Enforcement
+`JaCoCo` integrated with CI.
+Coverage uploaded to `Codecov`.  
 Status: Implemented
 
 ## ADR-010: API Contract Stabilization
-Stable pagination envelope and typed error contract.  
-Status: Implemented
+Stable pagination envelope:
+- `PageResponse`
+- `OrderPageResponse`  
+  Status: Implemented
 
-## ADR-011: OpenAPI Contract Specification
-OpenAPI made explicit and consumer-friendly with concrete schemas.  
-Status: Implemented
+## ADR-011: Messaging Boundary (Port-Adapter)
+Domain logic publishes events through abstraction.
+- `EventPublisher`
+- `RabbitMqEventPublisher`  
+  Status: Implemented
 
-## ADR-012: Messaging Boundary via Port-Adapter
-Publish events behind an abstraction, keep `RabbitMQ` as an adapter.  
-Status: Implemented (`v0.8.0`)
+## ADR-012: Consumer Idempotency Guard
+Consumers must tolerate duplicate message delivery.
+Strategy:
+- `IdempotencyStore`  
+  Status: Implemented (`v0.9.0`)
+
+## ADR-013: Retry + DLQ Strategy
+Message processing failures handled using:
+- `Spring AMQP` retry interceptor
+- `DLQ` republish recoverer  
+  Status: Implemented (`v0.9.0`)
 
 ---
 
 # 4. Implemented Components
 
 ## Core Architecture
-- Strict layered design
-- Clear package separation aligned with responsibilities
+- Strict layered architecture with responsibility separation.
 
 ## Domain Layer
-- `Order` entity
-- `OrderStatus` enum
-- Persistence defaults (lifecycle handling)
+- `Order`
+- `OrderStatus`
 
 ## Service Layer
-- Business logic encapsulated
-- Transaction boundaries defined (`@Transactional`)
-- Dirty checking update strategy
+- Encapsulated business logic with transactional boundaries.
+- Key behavior:
+    - create order
+    - update order status
+    - list orders with pagination
+- Event publishing triggered on successful persistence.
 
 ## Persistence Layer
-- Spring Data JPA repository (`OrderRepository`)
+- Spring Data repository:
+    - `OrderRepository`
 
 ## Web Layer
-- Versioned endpoints (`/api/v1/orders`)
-- Bean Validation integrated (`@Valid`)
-- Pagination exposed via stable response envelope (`PageResponse` / `OrderPageResponse`)
-- Typed error handling via centralized controller advice
+- Versioned REST endpoints:
+    - `/api/v1/orders`
+- Validation via:
+    - `@Valid`
+- Pagination contract via:
+    - `OrderPageResponse`
+- Centralized error handling.
 
-## Messaging Layer (`v0.8.0`)
-- `messaging/config`
-    - `RabbitMqConfig` for exchange / queue / binding
-- `messaging/event`
-    - `OrderCreatedEvent` immutable event DTO
-- `messaging/publisher`
-    - `EventPublisher` interface
-    - `RabbitMqEventPublisher` implementation
+## Messaging Layer
+
+### Publisher
+- `EventPublisher`
+- `RabbitMqEventPublisher`
+- `OrderCreatedEvent`
+
+### Messaging Configuration
+- `RabbitMqConfig`
+- `RabbitListenerRetryConfig`
+- Defines:
+    - Exchange
+    - Routing keys
+    - Queue
+    - Dead letter exchange
+    - Retry interceptor
+
+### Consumer
+- `OrderCreatedEventConsumer`
+- Responsibilities:
+    - consume events
+    - ensure idempotency
+    - delegate to handler
+
+### Handler
+- `OrderCreatedEventHandler`
+- `LoggingOrderCreatedEventHandler`
+- Current behavior:
+    - Logs consumption of events.
+- Future behavior may integrate additional services.
+
+### Idempotency
+- `IdempotencyStore`
+- `InMemoryIdempotencyStore`
+- Ensures duplicate events are ignored.
 
 ## Observability
-- Spring Boot Actuator enabled and verified
+- Spring Boot Actuator endpoints enabled.
 
-## OpenAPI / Swagger
-- Swagger UI and OpenAPI JSON exposed
-- Endpoint-level annotations include responses and schema contracts
-- Swagger UI shows correct API version
+## OpenAPI
+- Swagger UI verified and documented.
 
 ---
 
@@ -155,26 +241,37 @@ Base path:
 - `/api/v1/orders`
 
 Endpoints:
-- `POST /api/v1/orders`
-    - `201`: `OrderResponse`
-    - `400`: `ValidationError`
-- `GET /api/v1/orders/{id}`
-    - `200`: `OrderResponse`
-    - `404`: `ApiError`
-- `GET /api/v1/orders?page=0&size=10`
-    - `200`: `OrderPageResponse` (concrete schema for OpenAPI)
-- `PATCH /api/v1/orders/{id}/status?status=CONFIRMED`
-    - `200`: `OrderResponse`
-    - `400`: `ApiError`
-    - `404`: `ApiError`
+
+### Create Order
+`POST /api/v1/orders`
+
+Returns:
+- `201` → `OrderResponse`
+
+### Get Order
+`GET /api/v1/orders/{id}`
+
+### List Orders
+`GET /api/v1/orders?page=0&size=10`
+
+Returns:
+- `OrderPageResponse`
+
+### Update Order Status
+`PATCH /api/v1/orders/{id}/status`
 
 Contracts:
-- `OrderPageResponse` fields:
-    - `content`, `page`, `size`, `totalElements`, `totalPages`
-- `ApiError` fields:
-    - `timestamp`, `status`, `error`, `message`, `path`
-- `ValidationError` fields:
-    - `timestamp`, `status`, `error`, `message`, `path`, `fieldErrors`
+
+- `ApiError`
+    - Fields:
+        - `timestamp`
+        - `status`
+        - `error`
+        - `message`
+        - `path`
+- `ValidationError`
+    - Extends `ApiError` with:
+        - `fieldErrors`
 
 ---
 
@@ -182,40 +279,61 @@ Contracts:
 
 Test layers:
 
-## Web Layer Contract Tests
-- `@WebMvcTest` + `MockMvc`
-- Validates status codes, JSON contract shape, validation errors, enum mismatch behavior
+## Web Layer
+- `@WebMvcTest`
+- `MockMvc`
+- Validates:
+    - status codes
+    - request validation
+    - JSON response contracts
 
-## Repository Slice Tests
+## Repository Tests
 - `@DataJpaTest`
-- H2 in-memory database
-- Mapping and persistence verification
+- Uses `H2` in-memory database.
+- Validates:
+    - entity mapping
+    - persistence behavior
 
 ## Service Unit Tests
-- Mockito-based unit tests
-- NotFound scenarios
-- Behavior validation for listing and status updates
-- `v0.8.0` update: ensure event publisher is invoked for create flow (where applicable)
+- Mockito-based tests validate:
+    - order creation
+    - pagination
+    - status updates
+    - NotFound scenarios
 
-Current status:
-- `mvn clean test` green
+## Messaging Tests
+- Consumer tests verify:
+    - first-time processing
+    - duplicate event skipping
+    - invalid payload rejection
+
+Test results:
+```
+Tests run: 21
+Failures: 0
+Errors: 0
+```
 
 ---
 
 # 7. Code Quality and CI
 
-## JaCoCo Coverage
-- HTML report:
+## JaCoCo
+- Coverage reports generated locally and in CI.
+- Report path:
   `services/order-service/target/site/jacoco/index.html`
-- XML for CI and Codecov
-- Threshold enforcement enabled in CI
 
 ## Codecov
-- Coverage uploaded through GitHub Actions
-- Badge integrated in README
+- Coverage uploaded through GitHub Actions.
+- Badge included in README.
 
-## CI Workflow
-- Build -> Test -> Coverage report -> Coverage enforcement -> Codecov upload
+## CI Pipeline
+- Pipeline steps:
+    - build
+    - test
+    - coverage
+    - coverage enforcement
+    - Codecov upload
 
 Status: Operational
 
@@ -223,7 +341,7 @@ Status: Operational
 
 # 8. Local Runtime
 
-Docker run:
+Run:
 ```bash
 docker compose up --build
 ```
@@ -234,7 +352,7 @@ Swagger UI: [http://localhost:8081/swagger-ui/index.html](http://localhost:8081/
 
 OpenAPI JSON: [http://localhost:8081/v3/api-docs](http://localhost:8081/v3/api-docs)
 
-Health: [http://localhost:8081/actuator/health](http://localhost:8081/actuator/health)
+Health endpoint: [http://localhost:8081/actuator/health](http://localhost:8081/actuator/health)
 
 Notes:
 
@@ -246,49 +364,44 @@ Root `/` is not mapped; endpoints are API and docs focused.
 
 # 9. Versioning and Releases
 
-Current target release: `v0.8.0`
-Current code state: `RabbitMQ` event publishing introduced + documentation updated
+Current release:
+- `v0.9.0`
 
-Release rule:
+Release discipline:
+- commit → tests → tag → push → release
 
-1. Implement changes
-2. Run tests
-3. Commit
-4. Tag
-5. Push tag
-6. Publish GitHub Release
+Version badge now automated via GitHub tag badge.
 
-Release tooling note:
-
-`GitHub CLI` (`gh`) is not installed on current environment, so release creation must be done either:
-
-- via GitHub web UI, or
-- after installing `GitHub CLI` on the machine.
+Manual version badges removed from README.
 
 ---
 
 # 10. Planned Next Milestone
 
-Milestone: Event Consumption and Reliability Hooks (`v0.9.0`)
+Milestone: `DLQ` Handling and Failure Observability (`v0.10.0`)
 
 Goal:
-Move from "publish only" to "publish + consume" and introduce reliability patterns.
+Strengthen reliability and operational visibility.
 
 Planned scope:
 
-- Add a consumer example (`@RabbitListener`) to prove end-to-end event-driven flow
-- Introduce dead-letter queue handling (DLQ) and retry strategy (design-level or basic config)
-- Add idempotency guardrails for consumer side (design notes or minimal implementation)
-- Document delivery semantics and failure modes
+- `DLQ` consumer implementation
+- Failure logging with metadata
+- Event failure observability
+- Message retry metrics
+- Operational debugging support
+
+Architecture extension:
+- `publisher` → `RabbitMQ` → `consumer` → `retry` → `DLQ` → `DLQ` consumer
 
 ---
 
 # 11. Known Issues / Observations
 
-1. `@MockBean` deprecation warnings under `Spring Boot 3.5.x` during tests (build still succeeds)
-2. Ensure README version badge matches latest tag after tagging and releasing
-3. `GitHub CLI` not available (`gh release create` fails) - release must be created via UI or install `gh`
-4. Maven warning previously observed: duplicate `spring-boot-starter-amqp` dependency. Ensure `pom.xml` contains a single declaration.
+1. `@MockBean` deprecation warnings in `Spring Boot 3.5.x` tests (non-breaking)
+2. `RabbitMQ` connection attempts appear in tests when broker is not running
+3. Test profile now disables `Rabbit` listener auto-start to avoid unnecessary broker connections
+4. Maven dependency duplication previously detected for `AMQP` dependency (resolved)
 
 ---
 
@@ -299,11 +412,16 @@ Tests: Passing
 Coverage: Enforced
 CI: Operational
 Docker runtime: Verified
-OpenAPI contract: Explicit, stable, and verified in Swagger UI
-Architecture: Clean, extensible, event-ready
+OpenAPI contract: Stable
+Messaging: Publisher + Consumer + Retry + Idempotency implemented
 
 Project maturity level:
-Portfolio-grade backend service with stable API contracts, enforced quality gates, and event-driven foundations via `RabbitMQ`.
+Production-grade backend service with:
+- stable API contracts
+- enforced quality gates
+- event-driven messaging
+- reliability primitives
+- extensible architecture
 
 ---
 
