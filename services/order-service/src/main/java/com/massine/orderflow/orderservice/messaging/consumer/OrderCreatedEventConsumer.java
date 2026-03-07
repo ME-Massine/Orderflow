@@ -9,30 +9,33 @@ import org.springframework.stereotype.Component;
 @Component
 public class OrderCreatedEventConsumer {
 
-    private static final Logger log =
-            LoggerFactory.getLogger(OrderCreatedEventConsumer.class);
+    private static final Logger log = LoggerFactory.getLogger(OrderCreatedEventConsumer.class);
 
     private final IdempotencyStore idempotencyStore;
     private final OrderCreatedEventHandler handler;
+    private final MessagingMetrics messagingMetrics;
 
     public OrderCreatedEventConsumer(
             IdempotencyStore idempotencyStore,
-            OrderCreatedEventHandler handler
+            OrderCreatedEventHandler handler,
+            MessagingMetrics messagingMetrics
     ) {
         this.idempotencyStore = idempotencyStore;
         this.handler = handler;
+        this.messagingMetrics = messagingMetrics;
     }
 
     @RabbitListener(queues = "${orderflow.rabbitmq.order-created.queue}")
     public void onMessage(OrderCreatedEvent event) {
-
         if (event == null || event.eventId() == null) {
+            messagingMetrics.incrementFailed();
             throw new IllegalArgumentException("Invalid OrderCreatedEvent payload");
         }
 
         boolean firstTime = idempotencyStore.markProcessed(event.eventId());
 
         if (!firstTime) {
+            messagingMetrics.incrementDuplicate();
             log.info(
                     "Skipping duplicate OrderCreatedEvent eventId={} orderId={}",
                     event.eventId(),
@@ -41,6 +44,12 @@ public class OrderCreatedEventConsumer {
             return;
         }
 
-        handler.handle(event);
+        try {
+            handler.handle(event);
+            messagingMetrics.incrementConsumed();
+        } catch (RuntimeException ex) {
+            messagingMetrics.incrementFailed();
+            throw ex;
+        }
     }
 }

@@ -13,12 +13,12 @@ class OrderCreatedEventConsumerUnitTest {
 
     @Test
     void onMessage_firstTime_shouldHandle() {
-
         IdempotencyStore store = mock(IdempotencyStore.class);
         OrderCreatedEventHandler handler = mock(OrderCreatedEventHandler.class);
+        MessagingMetrics metrics = mock(MessagingMetrics.class);
 
         OrderCreatedEventConsumer consumer =
-                new OrderCreatedEventConsumer(store, handler);
+                new OrderCreatedEventConsumer(store, handler, metrics);
 
         UUID eventId = UUID.randomUUID();
 
@@ -38,16 +38,19 @@ class OrderCreatedEventConsumerUnitTest {
 
         verify(store).markProcessed(eventId);
         verify(handler).handle(event);
+        verify(metrics).incrementConsumed();
+        verify(metrics, never()).incrementDuplicate();
+        verify(metrics, never()).incrementFailed();
     }
 
     @Test
     void onMessage_duplicate_shouldSkip() {
-
         IdempotencyStore store = mock(IdempotencyStore.class);
         OrderCreatedEventHandler handler = mock(OrderCreatedEventHandler.class);
+        MessagingMetrics metrics = mock(MessagingMetrics.class);
 
         OrderCreatedEventConsumer consumer =
-                new OrderCreatedEventConsumer(store, handler);
+                new OrderCreatedEventConsumer(store, handler, metrics);
 
         UUID eventId = UUID.randomUUID();
 
@@ -66,17 +69,20 @@ class OrderCreatedEventConsumerUnitTest {
         consumer.onMessage(event);
 
         verify(store).markProcessed(eventId);
+        verify(metrics).incrementDuplicate();
         verifyNoInteractions(handler);
+        verify(metrics, never()).incrementConsumed();
+        verify(metrics, never()).incrementFailed();
     }
 
     @Test
     void onMessage_missingEventId_shouldThrow() {
-
         IdempotencyStore store = mock(IdempotencyStore.class);
         OrderCreatedEventHandler handler = mock(OrderCreatedEventHandler.class);
+        MessagingMetrics metrics = mock(MessagingMetrics.class);
 
         OrderCreatedEventConsumer consumer =
-                new OrderCreatedEventConsumer(store, handler);
+                new OrderCreatedEventConsumer(store, handler, metrics);
 
         OrderCreatedEvent event = new OrderCreatedEvent(
                 null,
@@ -93,7 +99,10 @@ class OrderCreatedEventConsumerUnitTest {
         } catch (IllegalArgumentException ignored) {
         }
 
+        verify(metrics).incrementFailed();
         verifyNoInteractions(store);
         verifyNoInteractions(handler);
+        verify(metrics, never()).incrementConsumed();
+        verify(metrics, never()).incrementDuplicate();
     }
 }
