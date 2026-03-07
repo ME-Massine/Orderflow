@@ -15,11 +15,83 @@ OrderFlow is a production-oriented backend system built to demonstrate clean arc
 OrderFlow is a production-oriented backend service designed to demonstrate real-world backend engineering practices:
 
 • Strict layered architecture  
-• Versioned REST API contracts  
+• Versioned REST API contracts      
 • Structured error handling  
 • Multi-layer testing strategy  
 • CI-driven quality enforcement  
 • Containerized runtime environment
+
+---
+
+
+---
+
+## System Architecture
+
+The following diagram shows the high-level system architecture of `OrderFlow` and how external clients interact with the service, database, and messaging infrastructure.
+
+```mermaid
+flowchart LR
+
+subgraph Client
+User["API Client"]
+end
+
+subgraph OrderFlow Service
+Controller["REST Controller"]
+Service["Order Service"]
+Repository["Order Repository"]
+end
+
+subgraph Persistence
+Database["PostgreSQL"]
+end
+
+subgraph Messaging
+Exchange["RabbitMQ Exchange"]
+Queue["order.created.q"]
+Consumer["OrderCreatedEventConsumer"]
+end
+
+User -->|HTTP REST| Controller
+Controller --> Service
+Service --> Repository
+Repository --> Database
+
+Service -->|publish event| Exchange
+Exchange --> Queue
+Queue --> Consumer
+```
+
+### Architecture Explanation
+
+`OrderFlow` follows a layered service architecture combined with event-driven messaging.
+
+`API Clients` interact with the service through a versioned `REST API`.
+
+The `Controller` layer handles `HTTP` transport and validation.
+
+The `Service` layer implements business logic and transactional boundaries.
+
+The `Repository` layer abstracts persistence using `Spring Data JPA`.
+
+Data is stored in `PostgreSQL`.
+
+After a successful order creation, the service emits an `OrderCreatedEvent`.
+
+The event is published to `RabbitMQ`, enabling asynchronous processing by consumers.
+
+This architecture separates:
+
+- request handling
+- domain logic
+- persistence
+- messaging
+
+allowing the system to scale and evolve without tight coupling.
+
+---
+
 
 ---
 
@@ -330,8 +402,6 @@ Release discipline:
 - Semantic versioning
 - Version bump before tagging
 - Tags aligned with pom version
-
-Latest release: v0.8.0
 
 ---
 
