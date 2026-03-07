@@ -4,7 +4,7 @@ server:
 spring:
   application:
     name: order-service
-    version: ${APP_VERSION:0.6.0}
+    version: ${APP_VERSION:0.10.0}
   rabbitmq:
     host: localhost
     port: 5672
@@ -31,13 +31,9 @@ management:
       enabled: false
 
 orderflow:
-  messaging:
-    exchange: orderflow.order.events
-    orderCreatedRoutingKey: order.created
-    orderCreatedQueue: orderflow.order.created
   rabbitmq:
-    exchange: orderflow.events
-    dlx-exchange: orderflow.dlx
+    exchange: orderflow.order.events
+    dlx-exchange: orderflow.order.dlx
     order-created:
       routing-key: order.created
       queue: order.created.q

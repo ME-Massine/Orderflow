@@ -14,8 +14,8 @@ public class RabbitMqEventPublisher implements EventPublisher {
 
     public RabbitMqEventPublisher(
             RabbitTemplate rabbitTemplate,
-            @Value("${orderflow.messaging.exchange}") String exchangeName,
-            @Value("${orderflow.messaging.orderCreatedRoutingKey}") String orderCreatedRoutingKey
+            @Value("${orderflow.rabbitmq.exchange}") String exchangeName,
+            @Value("${orderflow.rabbitmq.order-created.routing-key}") String orderCreatedRoutingKey
     ) {
         this.rabbitTemplate = rabbitTemplate;
         this.exchangeName = exchangeName;
