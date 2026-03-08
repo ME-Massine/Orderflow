@@ -5,6 +5,7 @@ import com.massine.orderflow.orderservice.dto.OrderResponse;
 import com.massine.orderflow.orderservice.entity.Order;
 import com.massine.orderflow.orderservice.entity.OrderStatus;
 import com.massine.orderflow.orderservice.exception.NotFoundException;
+import com.massine.orderflow.orderservice.messaging.outbox.OutboxEventWriter;
 import com.massine.orderflow.orderservice.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -13,13 +14,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-
 @Service
 @RequiredArgsConstructor
 public class OrderService {
 
     private final OrderRepository repo;
-    private final com.massine.orderflow.orderservice.messaging.publisher.EventPublisher eventPublisher;
+    private final OutboxEventWriter outboxEventWriter;
 
     @Transactional
     public OrderResponse create(CreateOrderRequest req) {
@@ -31,16 +31,8 @@ public class OrderService {
 
         Order saved = repo.save(order);
 
-        // Publish domain event (v0.8.0 foundation)
-        eventPublisher.publishOrderCreated(
-                com.massine.orderflow.orderservice.messaging.event.OrderCreatedEvent.of(
-                        saved.getId(),
-                        saved.getCustomerId(),
-                        saved.getProductId(),
-                        saved.getQuantity(),
-                        saved.getStatus()
-                )
-        );
+        // v1.0.0: persist event in outbox inside same transaction
+        outboxEventWriter.writeOrderCreated(saved);
 
         return toResponse(saved);
     }
@@ -52,18 +44,11 @@ public class OrderService {
         return toResponse(order);
     }
 
-    /**
-     * v0.6.0: preferred paging API for controllers.
-     * Keeps controller clean and allows Spring to bind page/size/sort automatically.
-     */
     @Transactional(readOnly = true)
     public Page<OrderResponse> listOrders(Pageable pageable) {
         return repo.findAll(pageable).map(this::toResponse);
     }
 
-    /**
-     * Backward-compatible helper (can be removed later if unused).
-     */
     @Transactional(readOnly = true)
     public Page<OrderResponse> list(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);

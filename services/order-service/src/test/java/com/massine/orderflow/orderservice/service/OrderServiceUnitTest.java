@@ -5,8 +5,7 @@ import com.massine.orderflow.orderservice.dto.OrderResponse;
 import com.massine.orderflow.orderservice.entity.Order;
 import com.massine.orderflow.orderservice.entity.OrderStatus;
 import com.massine.orderflow.orderservice.exception.NotFoundException;
-import com.massine.orderflow.orderservice.messaging.event.OrderCreatedEvent;
-import com.massine.orderflow.orderservice.messaging.publisher.EventPublisher;
+import com.massine.orderflow.orderservice.messaging.outbox.OutboxEventWriter;
 import com.massine.orderflow.orderservice.repository.OrderRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,7 +13,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.time.Instant;
 import java.util.List;
@@ -30,14 +32,13 @@ class OrderServiceUnitTest {
     private OrderRepository repo;
 
     @Mock
-    private EventPublisher eventPublisher;
+    private OutboxEventWriter outboxEventWriter;
 
     @InjectMocks
     private OrderService service;
 
     @Test
-    void create_shouldPersistReturnResponse_andPublishOrderCreatedEvent() {
-        // Arrange
+    void create_shouldPersistReturnResponse_andWriteOutboxEvent() {
         CreateOrderRequest req = new CreateOrderRequest();
         req.setCustomerId("cust-1");
         req.setProductId(10L);
@@ -54,10 +55,8 @@ class OrderServiceUnitTest {
 
         when(repo.save(any(Order.class))).thenReturn(saved);
 
-        // Act
         OrderResponse resp = service.create(req);
 
-        // Assert response
         assertThat(resp.getId()).isEqualTo(1L);
         assertThat(resp.getCustomerId()).isEqualTo("cust-1");
         assertThat(resp.getProductId()).isEqualTo(10L);
@@ -65,7 +64,6 @@ class OrderServiceUnitTest {
         assertThat(resp.getStatus()).isEqualTo(OrderStatus.PENDING);
         assertThat(resp.getCreatedAt()).isEqualTo(Instant.parse("2026-02-28T00:00:00Z"));
 
-        // Assert what was saved
         ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
         verify(repo).save(orderCaptor.capture());
 
@@ -74,25 +72,11 @@ class OrderServiceUnitTest {
         assertThat(toSave.getCustomerId()).isEqualTo("cust-1");
         assertThat(toSave.getProductId()).isEqualTo(10L);
         assertThat(toSave.getQuantity()).isEqualTo(2);
-
-        // Service does not set status/createdAt explicitly; entity does it on persist
         assertThat(toSave.getStatus()).isNull();
         assertThat(toSave.getCreatedAt()).isNull();
 
-        // Assert event published
-        ArgumentCaptor<OrderCreatedEvent> eventCaptor = ArgumentCaptor.forClass(OrderCreatedEvent.class);
-        verify(eventPublisher).publishOrderCreated(eventCaptor.capture());
-
-        OrderCreatedEvent evt = eventCaptor.getValue();
-        assertThat(evt.eventId()).isNotNull();
-        assertThat(evt.occurredAt()).isNotNull();
-        assertThat(evt.orderId()).isEqualTo(1L);
-        assertThat(evt.customerId()).isEqualTo("cust-1");
-        assertThat(evt.productId()).isEqualTo(10L);
-        assertThat(evt.quantity()).isEqualTo(2);
-        assertThat(evt.status()).isEqualTo(OrderStatus.PENDING);
-
-        verifyNoMoreInteractions(repo, eventPublisher);
+        verify(outboxEventWriter).writeOrderCreated(saved);
+        verifyNoMoreInteractions(repo, outboxEventWriter);
     }
 
     @Test
@@ -115,7 +99,7 @@ class OrderServiceUnitTest {
         assertThat(resp.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
 
         verify(repo).findById(5L);
-        verifyNoInteractions(eventPublisher);
+        verifyNoInteractions(outboxEventWriter);
         verifyNoMoreInteractions(repo);
     }
 
@@ -128,7 +112,7 @@ class OrderServiceUnitTest {
                 .hasMessageContaining("Order not found: 404");
 
         verify(repo).findById(404L);
-        verifyNoInteractions(eventPublisher);
+        verifyNoInteractions(outboxEventWriter);
         verifyNoMoreInteractions(repo);
     }
 
@@ -138,6 +122,7 @@ class OrderServiceUnitTest {
                 .id(2L).customerId("c2").productId(20L).quantity(2)
                 .status(OrderStatus.PENDING).createdAt(Instant.parse("2026-02-28T00:10:00Z"))
                 .build();
+
         Order o2 = Order.builder()
                 .id(1L).customerId("c1").productId(10L).quantity(1)
                 .status(OrderStatus.CANCELLED).createdAt(Instant.parse("2026-02-28T00:00:00Z"))
@@ -160,7 +145,7 @@ class OrderServiceUnitTest {
         assertThat(respPage.getContent().get(0).getId()).isEqualTo(2L);
         assertThat(respPage.getContent().get(1).getStatus()).isEqualTo(OrderStatus.CANCELLED);
 
-        verifyNoInteractions(eventPublisher);
+        verifyNoInteractions(outboxEventWriter);
         verifyNoMoreInteractions(repo);
     }
 
@@ -185,7 +170,7 @@ class OrderServiceUnitTest {
 
         verify(repo).findById(7L);
         verify(repo, never()).save(any());
-        verifyNoInteractions(eventPublisher);
+        verifyNoInteractions(outboxEventWriter);
         verifyNoMoreInteractions(repo);
     }
 
@@ -199,7 +184,7 @@ class OrderServiceUnitTest {
 
         verify(repo).findById(99L);
         verify(repo, never()).save(any());
-        verifyNoInteractions(eventPublisher);
+        verifyNoInteractions(outboxEventWriter);
         verifyNoMoreInteractions(repo);
     }
 }

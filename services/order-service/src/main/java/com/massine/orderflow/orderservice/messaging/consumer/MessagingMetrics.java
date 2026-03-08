@@ -12,6 +12,11 @@ public class MessagingMetrics {
     private final Counter failedCounter;
     private final Counter dlqCounter;
 
+    private final Counter outboxCreatedCounter;
+    private final Counter outboxPublishedCounter;
+    private final Counter outboxFailedCounter;
+    private final Counter outboxRetriedCounter;
+
     public MessagingMetrics(MeterRegistry meterRegistry) {
         this.consumedCounter = Counter.builder("orderflow.messaging.events.consumed")
                 .description("Number of successfully consumed messaging events")
@@ -27,6 +32,22 @@ public class MessagingMetrics {
 
         this.dlqCounter = Counter.builder("orderflow.messaging.events.dlq")
                 .description("Number of messages received by dead letter queue consumers")
+                .register(meterRegistry);
+
+        this.outboxCreatedCounter = Counter.builder("orderflow.outbox.events.created")
+                .description("Number of outbox events created in the database")
+                .register(meterRegistry);
+
+        this.outboxPublishedCounter = Counter.builder("orderflow.outbox.events.published")
+                .description("Number of outbox events successfully published to RabbitMQ")
+                .register(meterRegistry);
+
+        this.outboxFailedCounter = Counter.builder("orderflow.outbox.events.failed")
+                .description("Number of outbox events that failed publication")
+                .register(meterRegistry);
+
+        this.outboxRetriedCounter = Counter.builder("orderflow.outbox.events.retried")
+                .description("Number of outbox retry attempts")
                 .register(meterRegistry);
     }
 
@@ -44,5 +65,21 @@ public class MessagingMetrics {
 
     public void incrementDlq() {
         dlqCounter.increment();
+    }
+
+    public void incrementOutboxCreated() {
+        outboxCreatedCounter.increment();
+    }
+
+    public void incrementOutboxPublished() {
+        outboxPublishedCounter.increment();
+    }
+
+    public void incrementOutboxFailed() {
+        outboxFailedCounter.increment();
+    }
+
+    public void incrementOutboxRetried() {
+        outboxRetriedCounter.increment();
     }
 }

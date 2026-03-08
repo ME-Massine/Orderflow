@@ -39,3 +39,6 @@ orderflow:
       queue: order.created.q
       dlq-routing-key: order.created.dlq
       dlq: order.created.dlq
+    outbox:
+      publisher-fixed-delay-ms: 2000
+      batch-size: 100
