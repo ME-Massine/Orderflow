@@ -34,8 +34,34 @@ Each milestone introduces new system capabilities commonly found in production s
 
 # 2. Current Milestone
 
-Milestone: `DLQ` Handling and Failure Observability (`v0.10.0`)
-Status: Implemented – Tests Passing – Ready for Release Tag
+Milestone: `DLQ` Handling and Failure Observability (`v0.10.0`)  
+Status: Released
+
+Release Tag: `v0.10.0`
+
+Release summary:
+
+This milestone introduces operational reliability improvements and observability for the messaging layer.
+
+Key additions:
+
+- Dead Letter Queue consumer (`OrderCreatedDlqConsumer`)
+- Messaging observability via `Micrometer`
+- Retry diagnostics headers
+- Expanded consumer instrumentation
+- Improved test isolation for `Rabbit` listeners
+- `CI` coverage enforcement using `JaCoCo`
+- Transactional Outbox infrastructure
+- Background outbox event publisher
+
+Verification:
+
+Tests executed successfully.  
+Tests run: 36  
+Failures: 0  
+Errors: 0
+
+CI status: Passing
 
 ## Milestone Scope
 
@@ -123,25 +149,6 @@ These headers allow `DLQ` consumers to trace message origin.
 `Rabbit` listeners disabled during tests to avoid broker dependency:
 
 `spring.rabbitmq.listener.simple.auto-startup=false`
-
-### Verification
-
-Tests executed successfully.
-
-```bash
-mvn clean test
-```
-
-Results:
-
-```
-Tests run: 21
-Failures: 0
-Errors: 0
-Skipped: 0
-```
-
-`JaCoCo` coverage report generated.
 
 ---
 
@@ -264,7 +271,7 @@ Responsibilities:
 - create order
 - update order status
 - list orders with pagination
-- publish `OrderCreatedEvent`
+- persist `OrderCreatedEvent` to transactional outbox
 
 ## Persistence Layer
 
@@ -293,6 +300,51 @@ Components:
 - `EventPublisher`
 - `RabbitMqEventPublisher`
 - `OrderCreatedEvent`
+
+### Transactional Outbox
+
+Messaging reliability enhanced with a transactional outbox pattern.
+
+Purpose:
+
+Ensure reliable event publication even when message brokers are temporarily unavailable.
+
+Components:
+
+- `OutboxEvent`
+- `OutboxEventStatus`
+- `OutboxEventRepository`
+- `OutboxEventWriter`
+- `OutboxPublishingService`
+- `OutboxPublisherWorker`
+
+Flow:
+
+1. Order is created inside a database transaction.
+2. `OrderCreatedEvent` is serialized and stored in `outbox_events`.
+3. Scheduled worker scans for `PENDING` events.
+4. Events are published to `RabbitMQ`.
+5. Event status updated to `PUBLISHED` or `FAILED`.
+
+Advantages:
+
+- guarantees atomic write of domain change + event
+- prevents event loss
+- enables retry strategies
+
+Database table: `outbox_events`
+
+Fields include:
+
+- `event_id`
+- `aggregate_type`
+- `aggregate_id`
+- `event_type`
+- `payload`
+- `status`
+- `attempt_count`
+- `created_at`
+- `published_at`
 
 ### Messaging Configuration
 
@@ -341,10 +393,10 @@ Future behavior:
 Components:
 
 - `IdempotencyStore`
-- `InMemoryIdempotencyStore`
+- `JpaIdempotencyStore`
 
-Ensures duplicate events are skipped.
-
+Ensures duplicate events are skipped even across service restarts.
+    
 ### Dead Letter Queue Processing
 
 Component:
@@ -471,7 +523,8 @@ Validates:
 - pagination logic
 - status updates
 - `NotFound` scenarios
-- Messaging Tests
+
+## Messaging Tests
 
 Consumer tests validate:
 
@@ -482,7 +535,7 @@ Consumer tests validate:
 Test results:
 
 ```
-Tests run: 21
+Tests run: 36
 Failures: 0
 Errors: 0
 ```
@@ -549,21 +602,68 @@ Version badge automatically reflects `GitHub` release tags.
 
 ---
 
-# 10. Next Planned Milestone
+# 10. Next Milestone
 
-Milestone: Transactional Outbox Pattern (`v1.0.0`)
+Milestone: `Production Messaging Resilience` (`v1.0.0`)  
+Status: Planned
 
 Goal:
 
-Guarantee event delivery consistency between database writes and message publication.
+Stabilize the event-driven architecture and introduce production-grade failure recovery mechanisms.
 
-Planned scope:
+Planned improvements:
 
-- Outbox table
-- transactional event storage
-- background event publisher
-- durable idempotency
-- distributed system reliability improvements
+## Outbox Retry Strategy
+
+Introduce retry with exponential backoff for failed outbox events.
+
+Components:
+
+- retry scheduler
+- configurable retry limit
+- retry delay strategy
+
+## DLQ Replay Tooling
+
+Allow operators to replay failed messages from `DLQ`.
+
+Features:
+
+- manual replay endpoint
+- event inspection tools
+- `DLQ` diagnostics
+
+## Event Replay Capability
+
+Enable reprocessing of historical events.
+
+Purpose:
+
+- recovery from downstream service failures
+- system state reconstruction
+
+## Multi-Service Event Flow
+
+Introduce a second service consuming events.
+
+Candidate services:
+
+- Inventory Service
+- Payment Service
+
+Goal:
+
+Demonstrate a full event-driven microservice interaction.
+
+## Operational Improvements
+
+- improved logging context
+- distributed tracing readiness
+- enhanced metrics
+
+---
+
+Target release: `v1.0.0`
 
 ---
 
@@ -571,7 +671,7 @@ Planned scope:
 
 1. `@MockBean` deprecation warnings appear under `Spring Boot 3.5.x` (non-breaking).
 2. Messaging runtime requires `RabbitMQ` broker availability.
-3. Idempotency implementation is currently in-memory.
+3. Idempotency persistence implemented via JpaIdempotencyStore.
 4. `DLQ` consumer logs failures but does not persist them.
 
 ---
@@ -596,5 +696,3 @@ Messaging capabilities:
 Project maturity:
 
 Production-grade backend service demonstrating real-world event-driven architecture and reliability patterns.
-
-END OF FILE
