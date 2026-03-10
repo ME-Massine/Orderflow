@@ -1,18 +1,21 @@
 package com.massine.orderflow.orderservice.messaging.outbox;
 
-import com.massine.orderflow.orderservice.messaging.outbox.*;
 import org.junit.jupiter.api.Test;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OutboxPublisherWorkerTest {
+
+    @Mock
+    private OutboxRetryPolicy retryPolicy;
 
     @Mock
     private OutboxEventRepository repository;
@@ -24,13 +27,23 @@ class OutboxPublisherWorkerTest {
     private OutboxPublisherWorker worker;
 
     @Test
-    void shouldPublishAllPendingEvents() {
+    void shouldPublishAllEligiblePendingEvents() {
+        OutboxEvent e1 = OutboxEvent.builder()
+                .id(1L)
+                .status(OutboxEventStatus.PENDING)
+                .build();
 
-        OutboxEvent e1 = OutboxEvent.builder().id(1L).build();
-        OutboxEvent e2 = OutboxEvent.builder().id(2L).build();
+        OutboxEvent e2 = OutboxEvent.builder()
+                .id(2L)
+                .status(OutboxEventStatus.PENDING)
+                .build();
 
-        when(repository.findTop100ByStatusOrderByCreatedAtAsc(OutboxEventStatus.PENDING))
+        when(repository.findTop100ByStatusInOrderByCreatedAtAsc(
+                List.of(OutboxEventStatus.PENDING, OutboxEventStatus.FAILED)))
                 .thenReturn(List.of(e1, e2));
+
+        when(retryPolicy.isEligible(eq(e1), any())).thenReturn(true);
+        when(retryPolicy.isEligible(eq(e2), any())).thenReturn(true);
 
         worker.publishPendingEvents();
 
@@ -40,14 +53,15 @@ class OutboxPublisherWorkerTest {
 
     @Test
     void shouldDoNothingWhenNoEvents() {
-
-        when(repository.findTop100ByStatusOrderByCreatedAtAsc(OutboxEventStatus.PENDING))
+        when(repository.findTop100ByStatusInOrderByCreatedAtAsc(
+                List.of(OutboxEventStatus.PENDING, OutboxEventStatus.FAILED)))
                 .thenReturn(List.of());
 
         worker.publishPendingEvents();
 
-        verifyNoInteractions(publishingService);
+        verifyNoInteractions(publishingService, retryPolicy);
     }
+
     @Test
     void shouldPublishEligibleFailedEvents() {
         OutboxEvent failed = OutboxEvent.builder()
