@@ -1,4 +1,4 @@
-package com.massine.orderflow.orderservice.messaging.consumer.outbox;
+package com.massine.orderflow.orderservice.messaging.outbox;
 
 import com.massine.orderflow.orderservice.messaging.consumer.JpaIdempotencyStore;
 import com.massine.orderflow.orderservice.messaging.outbox.ProcessedEventRepository;

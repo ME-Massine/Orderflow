@@ -1,4 +1,4 @@
-package com.massine.orderflow.orderservice.messaging.consumer.outbox;
+package com.massine.orderflow.orderservice.messaging.outbox;
 
 import com.massine.orderflow.orderservice.messaging.outbox.OutboxEvent;
 import com.massine.orderflow.orderservice.messaging.outbox.OutboxEventStatus;

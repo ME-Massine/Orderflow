@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.List;
 
 @Slf4j
@@ -14,20 +15,25 @@ public class OutboxPublisherWorker {
 
     private final OutboxEventRepository repository;
     private final OutboxPublishingService publishingService;
+    private final OutboxRetryPolicy retryPolicy;
 
     @Scheduled(fixedDelayString = "${orderflow.outbox.publisher-fixed-delay-ms:2000}")
     public void publishPendingEvents() {
-        List<OutboxEvent> pendingEvents =
-                repository.findTop100ByStatusOrderByCreatedAtAsc(OutboxEventStatus.PENDING);
+        List<OutboxEvent> candidates =
+                repository.findTop100ByStatusInOrderByCreatedAtAsc(
+                        List.of(OutboxEventStatus.PENDING, OutboxEventStatus.FAILED)
+                );
 
-        if (pendingEvents.isEmpty()) {
+        if (candidates.isEmpty()) {
             return;
         }
 
-        log.info("Found {} pending outbox events to publish", pendingEvents.size());
+        Instant now = Instant.now();
 
-        for (OutboxEvent event : pendingEvents) {
-            publishingService.publish(event.getId());
+        for (OutboxEvent event : candidates) {
+            if (retryPolicy.isEligible(event, now)) {
+                publishingService.publish(event.getId());
+            }
         }
     }
 }

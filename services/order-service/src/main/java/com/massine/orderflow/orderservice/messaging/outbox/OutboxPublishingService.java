@@ -26,7 +26,8 @@ public class OutboxPublishingService {
         OutboxEvent outboxEvent = repository.findById(outboxEventId)
                 .orElseThrow(() -> new IllegalArgumentException("Outbox event not found: " + outboxEventId));
 
-        if (outboxEvent.getStatus() != OutboxEventStatus.PENDING) {
+        if (outboxEvent.getStatus() != OutboxEventStatus.PENDING &&
+                outboxEvent.getStatus() != OutboxEventStatus.FAILED) {
             return;
         }
 
@@ -39,6 +40,10 @@ public class OutboxPublishingService {
                     outboxEvent.getPayload(),
                     OrderCreatedEvent.class
             );
+
+            if (outboxEvent.getStatus() == OutboxEventStatus.FAILED) {
+                messagingMetrics.incrementOutboxRetried();
+            }
 
             eventPublisher.publishOrderCreated(event);
 

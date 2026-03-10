@@ -42,3 +42,7 @@ orderflow:
     outbox:
       publisher-fixed-delay-ms: 2000
       batch-size: 100
+    retry:
+      max-attempts: 5
+      initial-delay-ms: 5000
+      multiplier: 2.0

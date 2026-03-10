@@ -92,7 +92,7 @@ Implemented:
 Components:
 
 - `IdempotencyStore`
-- `InMemoryIdempotencyStore`
+- `JpaIdempotencyStore`
 - `OrderCreatedEventHandler`
 - `LoggingOrderCreatedEventHandler`
 

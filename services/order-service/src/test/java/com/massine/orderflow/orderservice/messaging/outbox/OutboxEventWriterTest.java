@@ -1,4 +1,4 @@
-package com.massine.orderflow.orderservice.messaging.consumer.outbox;
+package com.massine.orderflow.orderservice.messaging.outbox;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.massine.orderflow.orderservice.entity.Order;
