@@ -48,4 +48,39 @@ class OutboxPublisherWorkerTest {
 
         verifyNoInteractions(publishingService);
     }
+    @Test
+    void shouldPublishEligibleFailedEvents() {
+        OutboxEvent failed = OutboxEvent.builder()
+                .id(1L)
+                .status(OutboxEventStatus.FAILED)
+                .build();
+
+        when(repository.findTop100ByStatusInOrderByCreatedAtAsc(
+                List.of(OutboxEventStatus.PENDING, OutboxEventStatus.FAILED)))
+                .thenReturn(List.of(failed));
+
+        when(retryPolicy.isEligible(eq(failed), any())).thenReturn(true);
+
+        worker.publishPendingEvents();
+
+        verify(publishingService).publish(1L);
+    }
+
+    @Test
+    void shouldSkipFailedEventsStillInBackoffWindow() {
+        OutboxEvent failed = OutboxEvent.builder()
+                .id(1L)
+                .status(OutboxEventStatus.FAILED)
+                .build();
+
+        when(repository.findTop100ByStatusInOrderByCreatedAtAsc(
+                List.of(OutboxEventStatus.PENDING, OutboxEventStatus.FAILED)))
+                .thenReturn(List.of(failed));
+
+        when(retryPolicy.isEligible(eq(failed), any())).thenReturn(false);
+
+        worker.publishPendingEvents();
+
+        verifyNoInteractions(publishingService);
+    }
 }

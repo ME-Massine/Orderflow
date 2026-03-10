@@ -186,4 +186,34 @@ class OutboxPublishingServiceTest {
 
         verifyNoInteractions(eventPublisher, objectMapper, messagingMetrics);
     }
+
+    @Test
+    void publish_shouldIncrementRetryMetric_whenRetryingFailedEvent() throws Exception {
+        OutboxEvent outboxEvent = OutboxEvent.builder()
+                .id(1L)
+                .eventId(UUID.randomUUID())
+                .aggregateType("Order")
+                .aggregateId(10L)
+                .eventType("OrderCreatedEvent")
+                .payload("{json}")
+                .status(OutboxEventStatus.FAILED)
+                .attemptCount(1)
+                .build();
+
+        OrderCreatedEvent event = OrderCreatedEvent.of(
+                10L, "c1", 101L, 2, OrderStatus.PENDING
+        );
+
+        when(repository.findById(1L)).thenReturn(Optional.of(outboxEvent));
+        when(objectMapper.readValue("{json}", OrderCreatedEvent.class)).thenReturn(event);
+
+        service.publish(1L);
+
+        verify(messagingMetrics).incrementOutboxRetried();
+        verify(messagingMetrics).incrementOutboxPublished();
+
+        assertThat(outboxEvent.getStatus()).isEqualTo(OutboxEventStatus.PUBLISHED);
+    }
+
+    
 }
