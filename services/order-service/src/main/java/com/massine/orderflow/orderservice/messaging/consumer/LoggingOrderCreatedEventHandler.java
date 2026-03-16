@@ -12,9 +12,17 @@ public class LoggingOrderCreatedEventHandler implements OrderCreatedEventHandler
 
     @Override
     public void handle(OrderCreatedEvent event) {
-        // v0.9.0: demonstration consumer action.
-        // Later: call inventory/payment/notification adapters.
-        log.info("Consumed OrderCreatedEvent eventId={} orderId={} customerId={}",
-                event.eventId(), event.orderId(), event.customerId());
+
+        // DLQ test trigger
+        if ("dlq-test".equals(event.customerId())) {
+            throw new RuntimeException("Forced DLQ test failure");
+        }
+
+        log.info(
+                "Consumed OrderCreatedEvent eventId={} orderId={} customerId={}",
+                event.eventId(),
+                event.orderId(),
+                event.customerId()
+        );
     }
 }

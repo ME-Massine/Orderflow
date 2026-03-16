@@ -18,17 +18,17 @@ public class JpaIdempotencyStore implements IdempotencyStore {
     private final ProcessedEventRepository processedEventRepository;
 
     @Override
-    public boolean markProcessed(UUID eventId) {
-        try {
-            processedEventRepository.save(
-                    ProcessedEvent.builder()
-                            .eventId(eventId)
-                            .processedAt(Instant.now())
-                            .build()
-            );
-            return true;
-        } catch (DataIntegrityViolationException ex) {
-            return false;
-        }
+    public boolean isProcessed(UUID eventId) {
+        return processedEventRepository.existsById(eventId);
+    }
+
+    @Override
+    public void markProcessed(UUID eventId) {
+        processedEventRepository.save(
+                ProcessedEvent.builder()
+                        .eventId(eventId)
+                        .processedAt(Instant.now())
+                        .build()
+        );
     }
 }

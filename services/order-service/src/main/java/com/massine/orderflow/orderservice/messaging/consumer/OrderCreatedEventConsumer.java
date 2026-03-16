@@ -32,9 +32,7 @@ public class OrderCreatedEventConsumer {
             throw new IllegalArgumentException("Invalid OrderCreatedEvent payload");
         }
 
-        boolean firstTime = idempotencyStore.markProcessed(event.eventId());
-
-        if (!firstTime) {
+        if (idempotencyStore.isProcessed(event.eventId())) {
             messagingMetrics.incrementDuplicate();
             log.info(
                     "Skipping duplicate OrderCreatedEvent eventId={} orderId={}",
@@ -46,6 +44,7 @@ public class OrderCreatedEventConsumer {
 
         try {
             handler.handle(event);
+            idempotencyStore.markProcessed(event.eventId());
             messagingMetrics.incrementConsumed();
         } catch (RuntimeException ex) {
             messagingMetrics.incrementFailed();
