@@ -1,20 +1,16 @@
 package com.massine.orderflow.orderservice.messaging.outbox;
 
 import com.massine.orderflow.orderservice.messaging.consumer.JpaIdempotencyStore;
-import com.massine.orderflow.orderservice.messaging.outbox.ProcessedEventRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
-
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.verify;
 
 import java.util.UUID;
+
+import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.*;
 
 @ExtendWith(MockitoExtension.class)
 class JpaIdempotencyStoreTest {
@@ -26,22 +22,38 @@ class JpaIdempotencyStoreTest {
     private JpaIdempotencyStore store;
 
     @Test
-    void shouldReturnTrueWhenInsertSucceeds() {
+    void isProcessedShouldReturnTrueWhenEventExists() {
 
-        boolean result = store.markProcessed(UUID.randomUUID());
+        UUID eventId = UUID.randomUUID();
+
+        when(repository.existsById(eventId)).thenReturn(true);
+
+        boolean result = store.isProcessed(eventId);
 
         assertThat(result).isTrue();
-        verify(repository).save(any());
+        verify(repository).existsById(eventId);
     }
 
     @Test
-    void shouldReturnFalseOnDuplicate() {
+    void isProcessedShouldReturnFalseWhenEventDoesNotExist() {
 
-        doThrow(new DataIntegrityViolationException("duplicate"))
-                .when(repository).save(any());
+        UUID eventId = UUID.randomUUID();
 
-        boolean result = store.markProcessed(UUID.randomUUID());
+        when(repository.existsById(eventId)).thenReturn(false);
+
+        boolean result = store.isProcessed(eventId);
 
         assertThat(result).isFalse();
+        verify(repository).existsById(eventId);
+    }
+
+    @Test
+    void markProcessedShouldPersistEvent() {
+
+        UUID eventId = UUID.randomUUID();
+
+        store.markProcessed(eventId);
+
+        verify(repository).save(any());
     }
 }

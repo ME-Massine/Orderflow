@@ -4,7 +4,6 @@ import com.massine.orderflow.orderservice.messaging.outbox.ProcessedEvent;
 import com.massine.orderflow.orderservice.messaging.outbox.ProcessedEventRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Primary;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
