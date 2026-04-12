@@ -222,7 +222,29 @@ Components:
 Status: Implemented
 
 ## ADR-011 Idempotent Event Consumption
-Duplicate message protection via `IdempotencyStore`.
+
+Processing flow:
+
+```mermaid
+flowchart TD
+    A[RabbitMQ message] --> B(OrderCreatedEventConsumer)
+    B --> C{IdempotencyStore.isProcessed(eventId)}
+C -- true --> D(Duplicate: Skip)
+C -- false --> E(Process Event)
+E --> F(handler.handle(event))
+F --> G(IdempotencyStore.markProcessed(eventId))
+G --> H(metrics.incrementConsumed())
+end
+```
+
+`IdempotencyStore` interface:
+
+```java
+public interface IdempotencyStore {
+    boolean isProcessed(UUID eventId);
+    void markProcessed(UUID eventId);
+}
+```
 
 Status: Implemented
 
@@ -322,7 +344,10 @@ Flow:
 
 1. Order is created inside a database transaction.
 2. `OrderCreatedEvent` is serialized and stored in `outbox_events`.
-3. Scheduled worker scans for `PENDING` events.
+3. Scheduled worker scans for events with status:
+    - PENDING
+    - FAILED (eligible for retry)
+      Eligible events are filtered using OutboxRetryPolicy.
 4. Events are published to `RabbitMQ`.
 5. Event status updated to `PUBLISHED` or `FAILED`.
 
@@ -345,6 +370,32 @@ Fields include:
 - `attempt_count`
 - `created_at`
 - `published_at`
+
+### Outbox Retry Strategy
+
+`OutboxPublisherWorker` now supports retrying `FAILED` events.
+
+Mechanism:
+
+- events selected with status `IN (PENDING, FAILED)`
+- retry eligibility checked via `OutboxRetryPolicy`
+- exponential backoff applied
+- max attempts enforced
+
+Configuration:
+
+```yaml
+orderflow:
+  outbox:
+    retry:
+      max-attempts: 3
+      initial-delay-ms: 1000
+      multiplier: 2
+```
+
+Metrics:
+
+- `orderflow.outbox.events.retried`
 
 ### Messaging Configuration
 
@@ -396,7 +447,7 @@ Components:
 - `JpaIdempotencyStore`
 
 Ensures duplicate events are skipped even across service restarts.
-    
+
 ### Dead Letter Queue Processing
 
 Component:
@@ -431,6 +482,13 @@ Available endpoints:
 - `/actuator/metrics`
 
 Messaging metrics exposed through `Micrometer`.
+
+Outbox metrics:
+
+- `orderflow.outbox.events.created`
+- `orderflow.outbox.events.published`
+- `orderflow.outbox.events.failed`
+- `orderflow.outbox.events.retried`
 
 ## OpenAPI
 - Swagger UI and `OpenAPI JSON` verified.
@@ -671,7 +729,7 @@ Target release: `v1.0.0`
 
 1. `@MockBean` deprecation warnings appear under `Spring Boot 3.5.x` (non-breaking).
 2. Messaging runtime requires `RabbitMQ` broker availability.
-3. Idempotency persistence implemented via JpaIdempotencyStore.
+3. Idempotency is persisted in PostgreSQL via JpaIdempotencyStore to survive restarts and redeliveries.
 4. `DLQ` consumer logs failures but does not persist them.
 
 ---
@@ -692,6 +750,24 @@ Messaging capabilities:
 - `DLQ`
 - idempotency
 - messaging metrics
+
+## Runtime Behavior Validation
+
+The system has been validated against real failure scenarios:
+
+Scenario: Broker unavailable
+- Outbox events marked `FAILED`
+- `attempt_count` incremented
+- `failure_reason` stored
+
+Scenario: Broker recovery
+- failed events retried
+- events successfully published
+- status updated to `PUBLISHED`
+
+Scenario: Duplicate message delivery
+- duplicates detected via `IdempotencyStore`
+- skipped without reprocessing
 
 Project maturity:
 
